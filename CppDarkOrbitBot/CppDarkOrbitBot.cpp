@@ -269,7 +269,7 @@ double calculateIoU(const cv::Rect& a, const cv::Rect& b) {
     return static_cast<double>(intersection) / unionArea;
 }
 
-void applyNMS(const vector<cv::Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices) {
+void applyNMS(const vector<Rect> &boxes, const vector<double> &scores, double nmsThreshold, vector<int> &indices) {
     vector<int> sortedIndices(boxes.size());
     iota(sortedIndices.begin(), sortedIndices.end(), 0);
 
@@ -297,15 +297,15 @@ void applyNMS(const vector<cv::Rect>& boxes, const vector<double>& scores, doubl
     }
 }
 
-void drawBoxesAndLabels(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
+void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
 {
     // Draw the final matches with labels
     for (int idx : selectedIndices) {
-        const cv::Rect& box = boxes[idx];
+        const Rect& box = boxes[idx];
         double confidence = matchScores[idx];
 
         // Draw rectangle
-        cv::rectangle(screenshot, box, cv::Scalar(0, 255, 0), 2);
+        cv::rectangle(screenshot, box, Scalar(0, 255, 0), 2);
 
         // Create label with confidence score
         std::ostringstream labelStream;
@@ -314,15 +314,15 @@ void drawBoxesAndLabels(vector<int> selectedIndices, vector<Rect> boxes, vector<
 
         // Calculate position for the label
         int baseLine = 0;
-        cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-        cv::Point labelPos(box.x, box.y - 10); // Position above the rectangle
+        Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+        Point labelPos(box.x, box.y - 10); // Position above the rectangle
         if (labelPos.y < 0) labelPos.y = box.y + labelSize.height + 10; // Adjust if too close to top edge
 
         // Draw background rectangle for the label
-        cv::rectangle(screenshot, labelPos + cv::Point(0, baseLine), labelPos + cv::Point(labelSize.width, -labelSize.height), cv::Scalar(0, 255, 0), cv::FILLED);
+        cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), Scalar(0, 255, 0), FILLED);
 
         // Put the label text
-        cv::putText(screenshot, label, labelPos, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+        cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
     }
 }
 
@@ -348,9 +348,7 @@ void matchTemplate(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat> 
         cv::matchTemplate(grayscaleScreenshot, templateGrayscales[i], result, TM_CCOEFF_NORMED, templateAlphas[i]);
         //normalize(result, result, 0, 1, NORM_MINMAX, -1, Mat());
 
-
-
-        // Find matches above threshold
+        // finding matches above threshold
         vector<cv::Point> matchLocations;
         vector<double> matchScores;
 
@@ -364,18 +362,18 @@ void matchTemplate(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat> 
             }
         }
 
-        // Convert locations to rectangles
+        // converting locations to rectangles
         vector<Rect> boxes;
         for (const auto& loc : matchLocations) {
             boxes.emplace_back(Rect(loc, templateGrayscales[i].size()));
         }
 
-        // Apply Non-Maximum Suppression
-        double nmsThreshold = 0.3;  // Overlap threshold for NMS
-        vector<int> selectedIndices;
-        applyNMS(boxes, matchScores, nmsThreshold, selectedIndices);
+        // applying Non-Maximum Suppression
+        double nmsThreshold = 0.3;  // overlap threshold for NMS
+        vector<int> deduplicatedMatchIndexes;
+        applyNMS(boxes, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 
-        drawBoxesAndLabels(selectedIndices, boxes, matchScores, screenshot, templateNames[i]);
+        drawOnMatchedTarget(deduplicatedMatchIndexes, boxes, matchScores, screenshot, templateNames[i]);
     }
 }
 
