@@ -7,11 +7,14 @@
 #include <regex>
 #include <string>
 #include <chrono>
-
+#include <iomanip>
+#include <sstream>
+#include <algorithm>
+#include <numeric>
 
 using namespace std;
 using namespace cv;
-using namespace std::chrono;
+using namespace chrono;
 
 HANDLE consoleHandle;
 HWND darkOrbitHandle;
@@ -20,6 +23,8 @@ const int GREEN_TEXT_BLACK_BACKGROUND = 2;
 const int RED_TEXT_BLACK_BACKGROUND = 4;
 const int YELLOW_TEXT_BLACK_BACKGROUND = 6;
 const int DEFAULT = 15;
+
+const double MATCH_TEMPLATE_CONFIDENCE = 0.95;
 
 void setConsoleStyle(int style)
 {
@@ -189,14 +194,14 @@ Mat screenshotWindow(HWND hwnd)
 
     // Capture the entire screen into the bitmap
     if (!StretchBlt(hwindowCompatibleDC, 0, 0, width, height, hscreenDC, 0, 0, srcwidth, srcheight, SRCCOPY)) {
-        std::cerr << "Failed to capture the full screen!" << std::endl;
+        cerr << "Failed to capture the full screen!" << endl;
         return cv::Mat();  // Return empty matrix on failure
     }
 
     // Create an empty matrix to store the captured image (RGBA)
     src.create(height, width, CV_8UC4);  // RGBA format
     if (GetDIBits(hwindowCompatibleDC, hbwindow, 0, height, src.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS) == 0) {
-        std::cerr << "Failed to retrieve bitmap data!" << std::endl;
+        cerr << "Failed to retrieve bitmap data!" << endl;
         return cv::Mat();  // Return empty matrix on failure
     }
 
@@ -252,10 +257,85 @@ void computeFrameRate(milliseconds loopDuration, float &totalTime, float &totalF
     averageFPSString = averageFrameRateStream.str();
 }
 
+double calculateIoU(const cv::Rect& a, const cv::Rect& b) {
+    int x1 = max(a.x, b.x);
+    int y1 = max(a.y, b.y);
+    int x2 = min(a.x + a.width, b.x + b.width);
+    int y2 = min(a.y + a.height, b.y + b.height);
+
+    int intersection = max(0, x2 - x1) * max(0, y2 - y1);
+    int unionArea = a.area() + b.area() - intersection;
+
+    return static_cast<double>(intersection) / unionArea;
+}
+
+void applyNMS(const vector<cv::Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices) {
+    vector<int> sortedIndices(boxes.size());
+    iota(sortedIndices.begin(), sortedIndices.end(), 0);
+
+    // Sort indices by score in descending order
+    sort(sortedIndices.begin(), sortedIndices.end(), [&](int i1, int i2) {
+        return scores[i1] > scores[i2];
+        });
+
+    vector<bool> suppressed(boxes.size(), false);
+
+    for (size_t i = 0; i < sortedIndices.size(); ++i) {
+        int idx = sortedIndices[i];
+        if (suppressed[idx]) continue;
+
+        indices.push_back(idx);
+
+        for (size_t j = i + 1; j < sortedIndices.size(); ++j) {
+            int otherIdx = sortedIndices[j];
+            if (suppressed[otherIdx]) continue;
+
+            if (calculateIoU(boxes[idx], boxes[otherIdx]) > nmsThreshold) {
+                suppressed[otherIdx] = true;
+            }
+        }
+    }
+}
+
+void drawBoxesAndLabels(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
+{
+    // Draw the final matches with labels
+    for (int idx : selectedIndices) {
+        const cv::Rect& box = boxes[idx];
+        double confidence = matchScores[idx];
+
+        // Draw rectangle
+        cv::rectangle(screenshot, box, cv::Scalar(0, 255, 0), 2);
+
+        // Create label with confidence score
+        std::ostringstream labelStream;
+        labelStream << std::fixed << std::setprecision(2) << confidence;
+        std::string label = templateName + " | " + labelStream.str();
+
+        // Calculate position for the label
+        int baseLine = 0;
+        cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+        cv::Point labelPos(box.x, box.y - 10); // Position above the rectangle
+        if (labelPos.y < 0) labelPos.y = box.y + labelSize.height + 10; // Adjust if too close to top edge
+
+        // Draw background rectangle for the label
+        cv::rectangle(screenshot, labelPos + cv::Point(0, baseLine), labelPos + cv::Point(labelSize.width, -labelSize.height), cv::Scalar(0, 255, 0), cv::FILLED);
+
+        // Put the label text
+        cv::putText(screenshot, label, labelPos, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    }
+}
+
 void matchTemplate(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat> templateAlphas, vector<string> templateNames)
 {
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
+
+    // Threshold for match confidence
+    double confidenceThreshold = 0.75;
+
+    vector<Point> matchLocations;
+    vector<double> matchScores;
 
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
@@ -265,19 +345,37 @@ void matchTemplate(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat> 
         Mat result;
         result.create(result_rows, result_cols, CV_32FC1);
 
-        cv::matchTemplate(grayscaleScreenshot, templateGrayscales[i], result, TM_CCORR_NORMED, templateAlphas[i]);
-        normalize(result, result, 0, 1, NORM_MINMAX, -1, Mat());
+        cv::matchTemplate(grayscaleScreenshot, templateGrayscales[i], result, TM_CCOEFF_NORMED, templateAlphas[i]);
+        //normalize(result, result, 0, 1, NORM_MINMAX, -1, Mat());
 
-        double minVal; double maxVal; Point minLoc; Point maxLoc;
-        Point matchLoc;
-        minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
-        
-        matchLoc = maxLoc;
-        cout << templateNames[i] << " " << matchLoc << endl;
 
-        // draw to the screenshot provided by refference that will later get shown
-        rectangle(screenshot, matchLoc, Point(matchLoc.x + templateGrayscales[i].cols, matchLoc.y + templateGrayscales[i].rows), Scalar(0, 255, 0), 2, 8, 0);
-        rectangle(result, matchLoc, Point(matchLoc.x + templateGrayscales[i].cols, matchLoc.y + templateGrayscales[i].rows), Scalar(0, 255, 0), 2, 8, 0);
+
+        // Find matches above threshold
+        vector<cv::Point> matchLocations;
+        vector<double> matchScores;
+
+        for (int y = 0; y < result.rows; y++) {
+            for (int x = 0; x < result.cols; x++) {
+                double score = result.at<float>(y, x);
+                if (score >= confidenceThreshold && !isinf(score)) {
+                    matchLocations.push_back(Point(x, y));
+                    matchScores.push_back(score);
+                }
+            }
+        }
+
+        // Convert locations to rectangles
+        vector<Rect> boxes;
+        for (const auto& loc : matchLocations) {
+            boxes.emplace_back(Rect(loc, templateGrayscales[i].size()));
+        }
+
+        // Apply Non-Maximum Suppression
+        double nmsThreshold = 0.3;  // Overlap threshold for NMS
+        vector<int> selectedIndices;
+        applyNMS(boxes, matchScores, nmsThreshold, selectedIndices);
+
+        drawBoxesAndLabels(selectedIndices, boxes, matchScores, screenshot, templateNames[i]);
     }
 }
 
@@ -330,7 +428,7 @@ int main()
         Mat screenshot = screenshotWindow(darkOrbitHandle);
         if (screenshot.empty()) {
             setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
-            cout << "Failed to capture the window as Mat." << std::endl;
+            cout << "Failed to capture the window as Mat." << endl;
             return -1;
         }
 
