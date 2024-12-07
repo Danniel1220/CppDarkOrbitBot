@@ -1,9 +1,11 @@
-#ifndef CONSTANTS
-#define CONSTANTS
+#include "Constants.h"
 
-const int GREEN_TEXT_BLACK_BACKGROUND = 2;
-const int RED_TEXT_BLACK_BACKGROUND = 4;
-const int YELLOW_TEXT_BLACK_BACKGROUND = 6;
-const int DEFAULT = 15;
+#include <windows.h>
+#include <iostream>
 
-#endif
+HANDLE consoleHandle = nullptr;
+
+void initializeConsoleHandle() 
+{
+    consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+}
