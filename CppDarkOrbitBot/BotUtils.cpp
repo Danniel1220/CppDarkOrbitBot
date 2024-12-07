@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <regex>
 
 using namespace cv;
 using namespace std;
@@ -71,4 +72,70 @@ vector<Mat> loadImages(vector<string> paths, vector<Mat>& grayscales, vector<Mat
     setConsoleStyle(DEFAULT);
 
     return png_images;
+}
+
+void testConsoleColors() {
+    for (int k = 1; k < 255; k++)
+    {
+        // pick the colorattribute k you want
+        SetConsoleTextAttribute(consoleHandle, k);
+        cout << k << " POGGERS" << endl;
+    }
+    // 0 = Black     8 = Gray
+    // 1 = Blue      9 = Light Blue
+    // 2 = Green     a = Light Green
+    // 3 = Aqua      b = Light Aqua
+    // 4 = Red       c = Light Red
+    // 5 = Purple    d = Light Purple
+    // 6 = Yellow    e = Light Yellow
+    // 7 = White     f = Bright White
+
+    // system("color <backgroundColor><textColor>");
+}
+
+void showImages(vector<Mat>& targetGrayImages, string name)
+{
+    for (int i = 0; Mat target : targetGrayImages)
+    {
+        cv::imshow(name + to_string(i), target);
+        i++;
+    }
+}
+
+void extractPngNames(vector<string> pngPaths, vector<string>& targetNames)
+{
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    cout << "Extracting png file names..." << endl;
+
+    regex pngPathRegex(R"([^\\/:*?"<>|]+\.png$)");
+    smatch regexMatch;
+
+    bool extractionFailed = false;
+
+    for (string pngPath : pngPaths)
+    {
+        if (regex_search(pngPath, regexMatch, pngPathRegex)) {
+            setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+            targetNames.push_back(regexMatch[0]);
+            cout << "Extracted file name: " << regexMatch[0] << endl;
+        }
+        else {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+            cout << "No regex match found for path: \"" << pngPath << "\"" << endl;
+            extractionFailed = true;
+        }
+    }
+
+    if (extractionFailed)
+    {
+        setConsoleStyle(RED_TEXT_BLACK_BACKGROUND); // red text
+        cout << "Regex extraction of the png file names failed..." << endl;
+    }
+    else
+    {
+        setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
+        cout << "Successfully extracted all png file names!" << endl;
+    }
+
+    setConsoleStyle(DEFAULT);
 }

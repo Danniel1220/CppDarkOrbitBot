@@ -1,7 +1,6 @@
 #include "Constants.h"
 
 #include <windows.h>
-#include <iostream>
 
 HANDLE consoleHandle = nullptr;
 
