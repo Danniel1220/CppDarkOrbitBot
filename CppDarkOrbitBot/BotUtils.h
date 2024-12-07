@@ -14,6 +14,8 @@ vector<Mat> loadImages(vector<string> paths, vector<Mat>& grayscales, vector<Mat
 void testConsoleColors();
 void showImages(vector<Mat>& targetGrayImages, string name);
 void extractPngNames(vector<string> pngPaths, vector<string>& targetNames);
-
+Mat screenshotWindow(HWND hwnd);
+double calculateIoU(const cv::Rect& a, const cv::Rect& b);
+void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices);
 
 #endif
