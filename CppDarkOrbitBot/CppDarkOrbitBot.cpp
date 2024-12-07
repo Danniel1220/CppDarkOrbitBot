@@ -72,9 +72,11 @@ void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector
     }
 }
 
-void matchSingleTemplate(Mat& screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
+void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
     vector<Point> &matchLocations, vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
 {
+    cout << "Performing match..." << endl;
+    
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
 
@@ -108,13 +110,20 @@ void matchSingleTemplate(Mat& screenshot, Mat templateGrayscale, Mat templateAlp
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 }
 
-void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
+void matchTemplates(Mat screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
 {
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
 
     // Threshold for match confidence
     double confidenceThreshold = 0.75;
+
+    vector<vector<Point>> allMatchLocations(templateGrayscales.size());
+    vector<vector<double>> allMatchScores(templateGrayscales.size());
+    vector<vector<Rect>> allMatchRectangles(templateGrayscales.size());
+    vector<vector<int>> allDeduplicatedIndexes(templateGrayscales.size());
+
+    vector<thread> matchingThreads;
 
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
@@ -123,11 +132,30 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
         vector<Rect> matchRectangles;
         vector<int> deduplicatedMatchIndexes;
 
-        //matchSingleTemplate(screenshot, templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold, 
-        //    matchLocations, matchScores, matchRectangles, deduplicatedMatchIndexes);
+        cout << "Starting thread " << i << endl;
+        matchingThreads.emplace_back(matchSingleTemplate, screenshot, templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+            ref(allMatchLocations[i]), ref(allMatchScores[i]), ref(allMatchRectangles[i]), ref(allDeduplicatedIndexes[i]));
 
         //drawOnMatchedTarget(deduplicatedMatchIndexes, matchRectangles, matchScores, screenshot, templateNames[i]);
     }
+
+    cout << endl;
+
+    int i = 0;
+    for (auto& t : matchingThreads) {
+        if (t.joinable()) {
+            cout << "Joined thread " << i << endl;;
+            t.join();
+            i++;
+        }
+        else
+        {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+            cout << "COULDNT JOIN THREAD???";
+        }
+    }
+
+    cout << endl;
 }
 
 
