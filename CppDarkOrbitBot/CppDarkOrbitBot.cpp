@@ -154,6 +154,27 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
+vector<Mat> divideImage(Mat image, int divideAmount, int overlapAmount) 
+{
+    int imageWidth = image.cols;
+    int imageHeight = image.rows;
+    tuple<int, int> gridSize = { imageWidth / divideAmount, imageHeight / divideAmount };
+
+    cout << get<0>(gridSize) << " " << get<1>(gridSize) << endl;
+
+    for (int i = 0; i < divideAmount; i++)
+    {
+        for (int j = 0; j < divideAmount; j++)
+        {
+            Rect gridRect = Rect(i * get<0>(gridSize), j * get<1>(gridSize), get<0>(gridSize), get<1>(gridSize));
+            Mat grid = image(gridRect);
+            imshow("grid" + to_string(i) + to_string(j), grid);
+            moveWindow("grid" + to_string(i) + to_string(j), gridRect.x - 1920, gridRect.y);
+        }
+    }
+
+    return vector<Mat>();
+}
 
 
 int main() 
@@ -209,8 +230,9 @@ int main()
             return -1;
         }
 
-        matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
+        //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
+        vector<Mat> dividedScreenshot = divideImage(screenshot, 3, 0);
 
 
 
@@ -231,7 +253,7 @@ int main()
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
 
         // show the frame at the end
-        cv::imshow("CppDarkOrbitBotView", screenshot);
+        //cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
     }
 
