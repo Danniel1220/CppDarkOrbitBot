@@ -72,12 +72,43 @@ void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector
     }
 }
 
-void matchSingleTemplate(Mat &screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName)
+void matchSingleTemplate(Mat& screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
+    vector<Point> &matchLocations, vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
 {
+    Mat grayscaleScreenshot;
+    cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
 
+    int result_cols = grayscaleScreenshot.cols - templateGrayscale.cols + 1;
+    int result_rows = grayscaleScreenshot.rows - templateGrayscale.rows + 1;
+
+    Mat result;
+    result.create(result_rows, result_cols, CV_32FC1);
+
+    cv::matchTemplate(grayscaleScreenshot, templateGrayscale, result, matchMode, templateAlpha);
+
+    // finding matches above threshold
+    for (int y = 0; y < result.rows; y++) {
+        for (int x = 0; x < result.cols; x++) {
+            double score = result.at<float>(y, x);
+            if (score >= confidenceThreshold && !isinf(score)) {
+                matchLocations.push_back(Point(x, y));
+                matchScores.push_back(score);
+            }
+        }
+    }
+
+    // converting locations to rectangles
+    for (const auto& loc : matchLocations) 
+    {
+        matchRectangles.emplace_back(Rect(loc, templateGrayscale.size()));
+    }
+
+    // applying Non-Maximum Suppression
+    double nmsThreshold = 0.3;  // overlap threshold for NMS
+    applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 }
 
-void matchTemplates(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat> templateAlphas, vector<string> templateNames)
+void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
 {
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
@@ -85,46 +116,17 @@ void matchTemplates(Mat &screenshot, vector<Mat> templateGrayscales, vector<Mat>
     // Threshold for match confidence
     double confidenceThreshold = 0.75;
 
-    vector<Point> matchLocations;
-    vector<double> matchScores;
-
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
-        int result_cols = grayscaleScreenshot.cols - templateGrayscales[i].cols + 1;
-        int result_rows = grayscaleScreenshot.rows - templateGrayscales[i].rows + 1;
-
-        Mat result;
-        result.create(result_rows, result_cols, CV_32FC1);
-
-        cv::matchTemplate(grayscaleScreenshot, templateGrayscales[i], result, TM_CCOEFF_NORMED, templateAlphas[i]);
-        //normalize(result, result, 0, 1, NORM_MINMAX, -1, Mat());
-
-        // finding matches above threshold
-        vector<cv::Point> matchLocations;
+        vector<Point> matchLocations;
         vector<double> matchScores;
-
-        for (int y = 0; y < result.rows; y++) {
-            for (int x = 0; x < result.cols; x++) {
-                double score = result.at<float>(y, x);
-                if (score >= confidenceThreshold && !isinf(score)) {
-                    matchLocations.push_back(Point(x, y));
-                    matchScores.push_back(score);
-                }
-            }
-        }
-
-        // converting locations to rectangles
-        vector<Rect> boxes;
-        for (const auto& loc : matchLocations) {
-            boxes.emplace_back(Rect(loc, templateGrayscales[i].size()));
-        }
-
-        // applying Non-Maximum Suppression
-        double nmsThreshold = 0.3;  // overlap threshold for NMS
+        vector<Rect> matchRectangles;
         vector<int> deduplicatedMatchIndexes;
-        applyNMS(boxes, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 
-        drawOnMatchedTarget(deduplicatedMatchIndexes, boxes, matchScores, screenshot, templateNames[i]);
+        //matchSingleTemplate(screenshot, templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold, 
+        //    matchLocations, matchScores, matchRectangles, deduplicatedMatchIndexes);
+
+        //drawOnMatchedTarget(deduplicatedMatchIndexes, matchRectangles, matchScores, screenshot, templateNames[i]);
     }
 }
 
