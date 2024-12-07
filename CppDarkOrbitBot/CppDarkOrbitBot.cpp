@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <numeric>
 
+#include "Constants.cpp"
+
 using namespace std;
 using namespace cv;
 using namespace chrono;
@@ -19,12 +21,6 @@ using namespace chrono;
 HANDLE consoleHandle;
 HWND darkOrbitHandle;
 
-const int GREEN_TEXT_BLACK_BACKGROUND = 2;
-const int RED_TEXT_BLACK_BACKGROUND = 4;
-const int YELLOW_TEXT_BLACK_BACKGROUND = 6;
-const int DEFAULT = 15;
-
-const double MATCH_TEMPLATE_CONFIDENCE = 0.95;
 
 void setConsoleStyle(int style)
 {
