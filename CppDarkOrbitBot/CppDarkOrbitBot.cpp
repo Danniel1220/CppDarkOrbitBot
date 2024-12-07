@@ -154,26 +154,41 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
-vector<Mat> divideImage(Mat image, int divideAmount, int overlapAmount) 
+vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int overlapAmount) 
 {
     int imageWidth = image.cols;
     int imageHeight = image.rows;
-    tuple<int, int> gridSize = { imageWidth / divideAmount, imageHeight / divideAmount };
+    int gridCellWidth = imageWidth / gridWidth;
+    int gridCellHeight = imageHeight / gridHeight;
 
-    cout << get<0>(gridSize) << " " << get<1>(gridSize) << endl;
+    vector<vector<Mat>> imageGrid;
 
-    for (int i = 0; i < divideAmount; i++)
+    cout << gridCellWidth << " " << gridCellHeight << endl;
+
+    for (int i = 0; i < gridWidth; i++)
     {
-        for (int j = 0; j < divideAmount; j++)
+        vector<Mat> gridRow;
+        for (int j = 0; j < gridWidth; j++)
         {
-            Rect gridRect = Rect(i * get<0>(gridSize), j * get<1>(gridSize), get<0>(gridSize), get<1>(gridSize));
-            Mat grid = image(gridRect);
-            imshow("grid" + to_string(i) + to_string(j), grid);
-            moveWindow("grid" + to_string(i) + to_string(j), gridRect.x - 1920, gridRect.y);
+            // creating a rectangle for the region of screen to crop
+            // the rectangles are extended in every direction to overlap eachother by a fixed amount
+            // to prevent the loss of possible matches that happen to be on the edges of a grid cell
+            // also the grids will not be extended outside the image if that side of the grid is on the edge
+            Rect gridCellRect = Rect(
+                i * gridCellWidth - (i == 0 ? 0 : overlapAmount),
+                j * gridCellHeight - (j == 0 ? 0 : overlapAmount),
+                gridCellWidth + (i == gridWidth - 1 ? overlapAmount : overlapAmount * 2),
+                gridCellHeight + (j == gridWidth - 1 ? overlapAmount : overlapAmount * 2));
+            Mat gridCell = image(gridCellRect);
+            
+            gridRow.emplace_back(gridCell);
+
+            imshow("grid" + to_string(i) + to_string(j), gridCell);
+            moveWindow("grid" + to_string(i) + to_string(j), gridCellRect.x - 1920, gridCellRect.y);
         }
     }
 
-    return vector<Mat>();
+    return imageGrid;
 }
 
 
@@ -232,7 +247,7 @@ int main()
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        vector<Mat> dividedScreenshot = divideImage(screenshot, 3, 0);
+        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 2, 2, 50);
 
 
 
