@@ -75,6 +75,8 @@ void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
     vector<Point> &matchLocations, vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
 {
+    cout << "Starting match single template function" << endl;
+
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
 
@@ -154,6 +156,83 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
+void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
+{
+    vector<vector<Mat>> grayscaleScreenshotGrid;
+
+    for (int i = 0; i < screenshotGrid.size(); i++)
+    {
+        vector<Mat> grayscaleScreenshotGridRow;
+        for (int j = 0; j < screenshotGrid[i].size(); j++)
+        {
+            Mat grayscaleGridCell;
+            cvtColor(screenshotGrid[i][j], grayscaleGridCell, cv::COLOR_BGR2GRAY);
+            grayscaleScreenshotGridRow.emplace_back(grayscaleGridCell);
+        }
+        grayscaleScreenshotGrid.emplace_back(grayscaleScreenshotGridRow);
+    }
+
+    double confidenceThreshold = 0.75;
+
+    vector<vector<vector<vector<Point>>>> matchedLocations;
+    vector<vector<vector<vector<double>>>> matchedConfidences;
+    vector<vector<vector<vector<Rect>>>> matchedRectangles;
+    vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes;
+
+    vector<thread> matchingThreads;
+    vector<string> threadNames;
+
+    // for each row of the grid
+    for (int gridRow = 0; gridRow < grayscaleScreenshotGrid.size(); gridRow++)
+    {
+        // for each grid cell in the row
+        for (int gridColumn = 0; gridColumn < grayscaleScreenshotGrid[gridRow].size(); gridColumn++)
+        {
+            // for each template needed to be matched for each grid
+            for (int i = 0; i < templateGrayscales.size(); i++)
+            {
+                string threadName = "[" + to_string(gridRow) + "][" + to_string(gridColumn) + "] - " + to_string(i);
+                threadNames.emplace_back(threadName);
+                cout << "Creating thread: " << threadName << endl;
+                
+                /*matchingThreads.emplace_back(matchSingleTemplate, grayscaleScreenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                    ref(matchedLocations[gridRow][gridColumn][i]),
+                    ref(matchedConfidences[gridRow][gridColumn][i]),
+                    ref(matchedRectangles[gridRow][gridColumn][i]),
+                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));*/
+
+                matchSingleTemplate(grayscaleScreenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                    ref(matchedLocations[gridRow][gridColumn][i]),
+                    ref(matchedConfidences[gridRow][gridColumn][i]),
+                    ref(matchedRectangles[gridRow][gridColumn][i]),
+                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));
+
+                cout << "Created thread!" << endl;
+            }
+        }
+    }
+
+    cout << "da";
+
+    int i = 0;
+    for (thread& t : matchingThreads)
+    {
+        if (t.joinable())
+        {
+            t.join();
+            cout << "Joined thread: " << threadNames[i];
+            i++;
+        }
+        else
+        {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+            cout << "COULDNT JOIN THREAD???";
+        }
+    }
+
+    this_thread::sleep_for(seconds(2));
+}
+
 vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int overlapAmount) 
 {
     int imageWidth = image.cols;
@@ -165,7 +244,7 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
 
     cout << gridCellWidth << " " << gridCellHeight << endl;
 
-    for (int i = 0; i < gridWidth; i++)
+    for (int i = 0; i < gridHeight; i++)
     {
         vector<Mat> gridRow;
         for (int j = 0; j < gridWidth; j++)
@@ -183,8 +262,17 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
             
             gridRow.emplace_back(gridCell);
 
-            imshow("grid" + to_string(i) + to_string(j), gridCell);
-            moveWindow("grid" + to_string(i) + to_string(j), gridCellRect.x - 1920, gridCellRect.y);
+            //imshow("grid" + to_string(i) + to_string(j), gridCell);
+            //moveWindow("grid" + to_string(i) + to_string(j), gridCellRect.x - 1920, gridCellRect.y);
+        }
+        imageGrid.emplace_back(gridRow);
+    }
+
+    for (int i = 0; i < imageGrid.size(); i++)
+    {
+        for (int j = 0; j < imageGrid[i].size(); j++)
+        {
+            if (imageGrid[i][j].empty()) cout << "IMAGE GRID " << i << " " << j << " EMPTY IN IMAGE DIVIDE FUNCTION";
         }
     }
 
@@ -247,8 +335,9 @@ int main()
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 2, 2, 50);
+        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 2, 2, 0);
 
+        matchTemplates2(screenshot, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
 
 
 
