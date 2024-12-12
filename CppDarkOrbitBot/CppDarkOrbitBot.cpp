@@ -170,7 +170,7 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         // for each grid cell in the row
         for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
         {
-            // for each template needed to be matched for each grid
+            // for each template needed to be matched for each grid cell
             for (int i = 0; i < templateGrayscales.size(); i++)
             {
                 string threadName = "[" + to_string(gridRow) + "][" + to_string(gridColumn) + "]/" + "t" + to_string(i);
@@ -182,13 +182,6 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
                     ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));
-
-                /*matchSingleTemplate(screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
-                    matchedLocations[gridRow][gridColumn][i],
-                    matchedConfidences[gridRow][gridColumn][i],
-                    matchedRectangles[gridRow][gridColumn][i],
-                    deduplicatedMatchIndexes[gridRow][gridColumn][i]);*/
-
             }
         }
     }
@@ -206,6 +199,59 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         {
             setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
             cout << "COULDNT JOIN THREAD???";
+        }
+    }
+
+    vector<vector<Point>> aggregatedMatchedLocations(templateGrayscales.size());
+    vector<vector<double>> aggregatedMatchedConfidences(templateGrayscales.size());
+    vector<vector<Rect>> aggregatedMatchedRectangles(templateGrayscales.size());
+    vector<vector<int>> aggregatedDeduplicatedMatchIndexes(templateGrayscales.size());
+
+    // grabbing the size of the grid
+    int gridSizeX = screenshotGrid[0][0].cols;
+    int gridSizeY = screenshotGrid[0][0].rows;
+
+    // for each row of the grid
+    for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
+    {
+        // for each grid cell in the row
+        for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
+        {
+            vector<vector<Point>> deduplicatedMatchedLocations(templateGrayscales.size());
+            vector<vector<double>> deduplicatedMatchedConfidences(templateGrayscales.size());
+            vector<vector<Rect>> deduplicatedMatchedRectangles(templateGrayscales.size());
+
+            // for each template matched for each grid cell
+            for (int i = 0; i < templateGrayscales.size(); i++)
+            {        
+                // adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
+                // only for the deduplicated matched
+                for (int j = 0; j < deduplicatedMatchIndexes.size(); j++)
+                {
+                    int xOffset = -(gridRow * gridSizeX);
+                    int yOffset = -(gridColumn * gridSizeY);
+
+                    matchedLocations[gridRow][gridColumn][i][j].x += xOffset;
+                    matchedLocations[gridRow][gridColumn][i][j].y += yOffset;
+
+                    matchedRectangles[gridRow][gridColumn][i][j].x += xOffset;
+                    matchedRectangles[gridRow][gridColumn][i][j].y += yOffset;
+
+                    Point adjustedPoint = Point(
+                        matchedLocations[gridRow][gridColumn][i][j].x += xOffset,
+                        matchedLocations[gridRow][gridColumn][i][j].y += yOffset);
+
+                    Rect adjustedRect = Rect(
+                        matchedLocations[gridRow][gridColumn][i][j].x += xOffset, 
+                        matchedLocations[gridRow][gridColumn][i][j].y += yOffset,
+                        matchedRectangles[gridRow][gridColumn][i][j].width, 
+                        matchedRectangles[gridRow][gridColumn][i][j].height);
+
+                    deduplicatedMatchedLocations[i].emplace_back(adjustedPoint);
+                    deduplicatedMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][j]);
+                    deduplicatedMatchedRectangles[i].emplace_back(adjustedRect);
+                }
+            }
         }
     }
 
