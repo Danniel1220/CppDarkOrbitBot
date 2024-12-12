@@ -17,5 +17,7 @@ void extractPngNames(vector<string> pngPaths, vector<string>& targetNames);
 Mat screenshotWindow(HWND hwnd);
 double calculateIoU(const cv::Rect& a, const cv::Rect& b);
 void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices);
+long long getCurrentMillis();
+int computeMillisPassed(long long start, long long finish);
 
 #endif

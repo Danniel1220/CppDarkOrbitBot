@@ -7,6 +7,7 @@
 #include <vector>
 #include <regex>
 #include <numeric>
+#include <chrono>
 
 using namespace cv;
 using namespace std;
@@ -258,4 +259,17 @@ void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nm
             }
         }
     }
+}
+
+long long getCurrentMillis()
+{
+    std::chrono::time_point now = std::chrono::high_resolution_clock::now();
+    std:chrono::milliseconds duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+
+    return duration.count();
+}
+
+int computeMillisPassed(long long start, long long finish)
+{
+    return finish - start;
 }

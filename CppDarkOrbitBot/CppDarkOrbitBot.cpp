@@ -21,12 +21,11 @@ using namespace chrono;
 
 HWND darkOrbitHandle;
 
-void computeFrameRate(milliseconds loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString)
+void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString)
 {
-    float millis = loopDuration.count();
-    float currentFPS = 1 / (millis / 1000);
+    float currentFPS = 1 / (loopDuration / 1000);
 
-    totalTime += millis;
+    totalTime += loopDuration;
     totalFrames++;
 
     float averageMillis = totalTime / totalFrames;
@@ -36,7 +35,7 @@ void computeFrameRate(milliseconds loopDuration, float &totalTime, float &totalF
     stringstream averageFrameRateStream;
     frameRateStream << fixed << setprecision(2);
     averageFrameRateStream << fixed << setprecision(2);
-    frameRateStream << millis << " ms | " << currentFPS << " FPS";
+    frameRateStream << loopDuration << " ms | " << currentFPS << " FPS";
     averageFrameRateStream << averageMillis << " ms | " << averageFPS << " FPS | avg";
 
     currentFPSString = frameRateStream.str();
@@ -324,7 +323,7 @@ int main()
     while (true)
     {
         // keep track of when the loop starts
-        time_point start = high_resolution_clock::now();
+        long long start = getCurrentMillis();
 
         Mat screenshot = screenshotWindow(darkOrbitHandle);
         if (screenshot.empty()) {
@@ -347,8 +346,7 @@ int main()
 
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
-        time_point end = high_resolution_clock::now();
-        milliseconds duration = duration_cast<milliseconds>(end - start);
+        int duration = computeMillisPassed(start, getCurrentMillis());
         string frameRate;
         string averageFrameRate;
         computeFrameRate(duration, totalTime, totalFrames, frameRate, averageFrameRate);
