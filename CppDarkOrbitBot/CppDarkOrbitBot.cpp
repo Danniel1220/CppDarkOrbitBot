@@ -23,7 +23,7 @@ HWND darkOrbitHandle;
 
 void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString)
 {
-    float currentFPS = 1 / (loopDuration / 1000);
+    float currentFPS = 1 / (float(loopDuration) / 1000);
 
     totalTime += loopDuration;
     totalFrames++;
@@ -74,8 +74,6 @@ void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
     vector<Point> &matchLocations, vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
 {
-    cout << "Starting match single template function" << endl;
-
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
 
@@ -148,7 +146,6 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 
     cout << endl;
-
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
         drawOnMatchedTarget(deduplicatedMatchIndexes[i], matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
@@ -157,61 +154,44 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
 
 void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
 {
-    vector<vector<Mat>> grayscaleScreenshotGrid;
-
-    for (int i = 0; i < screenshotGrid.size(); i++)
-    {
-        vector<Mat> grayscaleScreenshotGridRow;
-        for (int j = 0; j < screenshotGrid[i].size(); j++)
-        {
-            Mat grayscaleGridCell;
-            cvtColor(screenshotGrid[i][j], grayscaleGridCell, cv::COLOR_BGR2GRAY);
-            grayscaleScreenshotGridRow.emplace_back(grayscaleGridCell);
-        }
-        grayscaleScreenshotGrid.emplace_back(grayscaleScreenshotGridRow);
-    }
-
     double confidenceThreshold = 0.75;
 
-    vector<vector<vector<vector<Point>>>> matchedLocations;
-    vector<vector<vector<vector<double>>>> matchedConfidences;
-    vector<vector<vector<vector<Rect>>>> matchedRectangles;
-    vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes;
+    vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
+    vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templateGrayscales.size())));
+    vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templateGrayscales.size())));
+    vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
 
     vector<thread> matchingThreads;
     vector<string> threadNames;
 
     // for each row of the grid
-    for (int gridRow = 0; gridRow < grayscaleScreenshotGrid.size(); gridRow++)
+    for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
     {
         // for each grid cell in the row
-        for (int gridColumn = 0; gridColumn < grayscaleScreenshotGrid[gridRow].size(); gridColumn++)
+        for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
         {
             // for each template needed to be matched for each grid
             for (int i = 0; i < templateGrayscales.size(); i++)
             {
-                string threadName = "[" + to_string(gridRow) + "][" + to_string(gridColumn) + "] - " + to_string(i);
+                string threadName = "[" + to_string(gridRow) + "][" + to_string(gridColumn) + "]/" + "t" + to_string(i);
                 threadNames.emplace_back(threadName);
                 cout << "Creating thread: " << threadName << endl;
                 
-                /*matchingThreads.emplace_back(matchSingleTemplate, grayscaleScreenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
-                    ref(matchedLocations[gridRow][gridColumn][i]),
-                    ref(matchedConfidences[gridRow][gridColumn][i]),
-                    ref(matchedRectangles[gridRow][gridColumn][i]),
-                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));*/
-
-                matchSingleTemplate(grayscaleScreenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                matchingThreads.emplace_back(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
                     ref(matchedLocations[gridRow][gridColumn][i]),
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
                     ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));
 
-                cout << "Created thread!" << endl;
+                /*matchSingleTemplate(screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                    matchedLocations[gridRow][gridColumn][i],
+                    matchedConfidences[gridRow][gridColumn][i],
+                    matchedRectangles[gridRow][gridColumn][i],
+                    deduplicatedMatchIndexes[gridRow][gridColumn][i]);*/
+
             }
         }
     }
-
-    cout << "da";
 
     int i = 0;
     for (thread& t : matchingThreads)
@@ -219,7 +199,7 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         if (t.joinable())
         {
             t.join();
-            cout << "Joined thread: " << threadNames[i];
+            cout << "Joined thread: " << threadNames[i] << endl;
             i++;
         }
         else
@@ -229,7 +209,7 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         }
     }
 
-    this_thread::sleep_for(seconds(2));
+    //this_thread::sleep_for(seconds(5));
 }
 
 vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int overlapAmount) 
@@ -241,7 +221,7 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
 
     vector<vector<Mat>> imageGrid;
 
-    cout << gridCellWidth << " " << gridCellHeight << endl;
+    //cout << "Screenshot grid size: " << gridCellWidth << " x " << gridCellHeight << endl;
 
     for (int i = 0; i < gridHeight; i++)
     {
@@ -265,14 +245,6 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
             //moveWindow("grid" + to_string(i) + to_string(j), gridCellRect.x - 1920, gridCellRect.y);
         }
         imageGrid.emplace_back(gridRow);
-    }
-
-    for (int i = 0; i < imageGrid.size(); i++)
-    {
-        for (int j = 0; j < imageGrid[i].size(); j++)
-        {
-            if (imageGrid[i][j].empty()) cout << "IMAGE GRID " << i << " " << j << " EMPTY IN IMAGE DIVIDE FUNCTION";
-        }
     }
 
     return imageGrid;
@@ -332,13 +304,12 @@ int main()
             return -1;
         }
 
+
+        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 3, 3, 0);
+
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 2, 2, 0);
-
         matchTemplates2(screenshot, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
-
-
 
 
 
@@ -351,11 +322,12 @@ int main()
         string averageFrameRate;
         computeFrameRate(duration, totalTime, totalFrames, frameRate, averageFrameRate);
 
+
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
 
         // show the frame at the end
-        //cv::imshow("CppDarkOrbitBotView", screenshot);
+        cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
     }
 
