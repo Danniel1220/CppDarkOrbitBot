@@ -261,16 +261,8 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
                 // only for the deduplicated matches
                 for (int j = 0; j < deduplicatedMatchIndexes[gridRow][gridColumn][i].size(); j++)
                 {
-                    int overlapOffsetX;
-
-                    if (gridColumn == 0) overlapOffsetX = 0;
-                    else overlapOffsetX = -screenshotOffset;
-                    
-                    int overlapOffsetY;
-
-                    if (gridRow == 0) overlapOffsetY = 0;
-                    else overlapOffsetY = -screenshotOffset;
-
+                    int overlapOffsetX = gridColumn == 0 ? 0 : -screenshotOffset;
+                    int overlapOffsetY = gridRow == 0 ? 0 : -screenshotOffset;
 
                     int xOffset = gridColumn * gridSizeX + overlapOffsetX;
                     int yOffset = gridRow * gridSizeY + overlapOffsetY;
