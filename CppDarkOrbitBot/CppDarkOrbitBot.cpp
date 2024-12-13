@@ -42,7 +42,7 @@ void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, st
     averageFPSString = averageFrameRateStream.str();
 }
 
-void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
+void drawMatchedTargets(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
 {
     // Draw the final matches with labels
     for (int idx : selectedIndices) {
@@ -67,6 +67,34 @@ void drawOnMatchedTarget(vector<int> selectedIndices, vector<Rect> boxes, vector
         cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), Scalar(0, 255, 0), FILLED);
 
         // Put the label text
+        cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
+    }
+}
+
+void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
+{
+    for (int i = 0; i < rectangles.size(); i++)
+    {
+        cout << "Drawing " << templateName << " at " << rectangles[i].x << " " << rectangles[i].y << endl;
+
+        // drawing rectangle
+        cv::rectangle(screenshot, rectangles[i], Scalar(0, 255, 0), 2);
+
+        // creating label with confidence score
+        ostringstream labelStream;
+        labelStream << std::fixed << std::setprecision(2) << confidences[i];
+        string label = templateName + " | " + labelStream.str();
+
+        // calculating position for the label (so it doesnt go off screen
+        int baseLine = 0;
+        Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+        Point labelPos(rectangles[i].x, rectangles[i].y - 10); // position above the rectangle
+        if (labelPos.y < 0) labelPos.y = rectangles[i].y + labelSize.height + 10; // adjust if too close to top edge
+
+        // drawing background rectangle for the label
+        cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), Scalar(0, 255, 0), FILLED);
+
+        // drawing the label text
         cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
     }
 }
@@ -105,6 +133,11 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
     // applying Non-Maximum Suppression
     double nmsThreshold = 0.3;  // overlap threshold for NMS
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
+
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    string msg = "Thread found " + to_string(matchRectangles.size()) + " matches for " + templateName;
+    cout << msg << endl;
+    setConsoleStyle(DEFAULT);
 }
 
 void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
@@ -148,14 +181,15 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     cout << endl;
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
-        drawOnMatchedTarget(deduplicatedMatchIndexes[i], matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
+        drawMatchedTargets(deduplicatedMatchIndexes[i], matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
     }
 }
 
-void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
+void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
 {
     double confidenceThreshold = 0.75;
 
+    // rows - columns - templates - matches
     vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
     vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templateGrayscales.size())));
     vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templateGrayscales.size())));
@@ -202,14 +236,18 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         }
     }
 
+    // templates - matches
     vector<vector<Point>> aggregatedMatchedLocations(templateGrayscales.size());
     vector<vector<double>> aggregatedMatchedConfidences(templateGrayscales.size());
     vector<vector<Rect>> aggregatedMatchedRectangles(templateGrayscales.size());
     vector<vector<int>> aggregatedDeduplicatedMatchIndexes(templateGrayscales.size());
 
     // grabbing the size of the grid
-    int gridSizeX = screenshotGrid[0][0].cols;
-    int gridSizeY = screenshotGrid[0][0].rows;
+    int gridSizeX = screenshotGrid[0][0].cols - screenshotOffset;
+    int gridSizeY = screenshotGrid[0][0].rows - screenshotOffset;
+
+    // going through all the matches from each thread and aggregating them into one structure
+    // also adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
 
     // for each row of the grid
     for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
@@ -217,42 +255,54 @@ void matchTemplates2(Mat& screenshot, vector<vector<Mat>> &screenshotGrid, vecto
         // for each grid cell in the row
         for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
         {
-            vector<vector<Point>> deduplicatedMatchedLocations(templateGrayscales.size());
-            vector<vector<double>> deduplicatedMatchedConfidences(templateGrayscales.size());
-            vector<vector<Rect>> deduplicatedMatchedRectangles(templateGrayscales.size());
-
             // for each template matched for each grid cell
             for (int i = 0; i < templateGrayscales.size(); i++)
             {        
-                // adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
-                // only for the deduplicated matched
-                for (int j = 0; j < deduplicatedMatchIndexes.size(); j++)
+                // only for the deduplicated matches
+                for (int j = 0; j < deduplicatedMatchIndexes[gridRow][gridColumn][i].size(); j++)
                 {
-                    int xOffset = -(gridRow * gridSizeX);
-                    int yOffset = -(gridColumn * gridSizeY);
+                    int overlapOffsetX;
 
-                    matchedLocations[gridRow][gridColumn][i][j].x += xOffset;
-                    matchedLocations[gridRow][gridColumn][i][j].y += yOffset;
+                    if (gridColumn == 0) overlapOffsetX = 0;
+                    else overlapOffsetX = -screenshotOffset;
+                    
+                    int overlapOffsetY;
 
-                    matchedRectangles[gridRow][gridColumn][i][j].x += xOffset;
-                    matchedRectangles[gridRow][gridColumn][i][j].y += yOffset;
+                    if (gridRow == 0) overlapOffsetY = 0;
+                    else overlapOffsetY = -screenshotOffset;
+
+
+                    int xOffset = gridColumn * gridSizeX + overlapOffsetX;
+                    int yOffset = gridRow * gridSizeY + overlapOffsetY;
+
+                    int deduplicatedMatchIndex = deduplicatedMatchIndexes[gridRow][gridColumn][i][j];
+
+                    Point initialPoint = Point(
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x,
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y);
 
                     Point adjustedPoint = Point(
-                        matchedLocations[gridRow][gridColumn][i][j].x += xOffset,
-                        matchedLocations[gridRow][gridColumn][i][j].y += yOffset);
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset,
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset);
 
                     Rect adjustedRect = Rect(
-                        matchedLocations[gridRow][gridColumn][i][j].x += xOffset, 
-                        matchedLocations[gridRow][gridColumn][i][j].y += yOffset,
-                        matchedRectangles[gridRow][gridColumn][i][j].width, 
-                        matchedRectangles[gridRow][gridColumn][i][j].height);
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset, 
+                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset,
+                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
+                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
 
-                    deduplicatedMatchedLocations[i].emplace_back(adjustedPoint);
-                    deduplicatedMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][j]);
-                    deduplicatedMatchedRectangles[i].emplace_back(adjustedRect);
+                    aggregatedMatchedLocations[i].emplace_back(adjustedPoint);
+                    aggregatedMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
+                    aggregatedMatchedRectangles[i].emplace_back(adjustedRect);
                 }
             }
         }
+    }
+
+    // drawing all the matches
+    for (int i = 0; i < templateNames.size(); i++)
+    {
+        drawMatchedTargets2(aggregatedMatchedRectangles[i], aggregatedMatchedConfidences[i], screenshot, templateNames[i]);
     }
 
     //this_thread::sleep_for(seconds(5));
@@ -279,10 +329,10 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
             // to prevent the loss of possible matches that happen to be on the edges of a grid cell
             // also the grids will not be extended outside the image if that side of the grid is on the edge
             Rect gridCellRect = Rect(
-                i * gridCellWidth - (i == 0 ? 0 : overlapAmount),
-                j * gridCellHeight - (j == 0 ? 0 : overlapAmount),
-                gridCellWidth + (i == gridWidth - 1 ? overlapAmount : overlapAmount * 2),
-                gridCellHeight + (j == gridWidth - 1 ? overlapAmount : overlapAmount * 2));
+                j * gridCellWidth - (j == 0 ? 0 : overlapAmount),
+                i * gridCellHeight - (i == 0 ? 0 : overlapAmount),
+                gridCellWidth + (j == 0 || j == gridWidth - 1 ? overlapAmount : overlapAmount * 2),
+                gridCellHeight + (i == 0 || i == gridHeight - 1 ? overlapAmount : overlapAmount * 2));
             Mat gridCell = image(gridCellRect);
             
             gridRow.emplace_back(gridCell);
@@ -350,12 +400,13 @@ int main()
             return -1;
         }
 
+        int screenshotOffset = 50;
 
-        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 3, 3, 0);
+        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 3, 3, screenshotOffset);
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        matchTemplates2(screenshot, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
+        matchTemplates2(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
 
 
 
