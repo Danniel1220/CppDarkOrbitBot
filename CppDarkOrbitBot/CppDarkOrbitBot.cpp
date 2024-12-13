@@ -75,8 +75,6 @@ void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Ma
 {
     for (int i = 0; i < rectangles.size(); i++)
     {
-        cout << "Drawing " << templateName << " at " << rectangles[i].x << " " << rectangles[i].y << endl;
-
         // drawing rectangle
         cv::rectangle(screenshot, rectangles[i], Scalar(0, 255, 0), 2);
 
@@ -133,11 +131,6 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
     // applying Non-Maximum Suppression
     double nmsThreshold = 0.3;  // overlap threshold for NMS
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
-
-    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
-    string msg = "Thread found " + to_string(matchRectangles.size()) + " matches for " + templateName;
-    cout << msg << endl;
-    setConsoleStyle(DEFAULT);
 }
 
 void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
@@ -157,19 +150,16 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
 
     for (int i = 0; i < templateGrayscales.size(); i++)
     {
-        cout << "Starting thread " << i << endl;
         matchingThreads.emplace_back(matchSingleTemplate, screenshot, templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
             ref(matchedLocations[i]), ref(matchedConfidences[i]), ref(matchedRectangles[i]), ref(deduplicatedMatchIndexes[i]));
     }
 
     cout << endl;
 
-    int i = 0;
     for (thread &t : matchingThreads) {
-        if (t.joinable()) {
-            cout << "Joined thread " << i << endl;;
+        if (t.joinable()) 
+        {
             t.join();
-            i++;
         }
         else
         {
@@ -196,7 +186,6 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
     vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
 
     vector<thread> matchingThreads;
-    vector<string> threadNames;
 
     // for each row of the grid
     for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
@@ -207,10 +196,6 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
             // for each template needed to be matched for each grid cell
             for (int i = 0; i < templateGrayscales.size(); i++)
             {
-                string threadName = "[" + to_string(gridRow) + "][" + to_string(gridColumn) + "]/" + "t" + to_string(i);
-                threadNames.emplace_back(threadName);
-                cout << "Creating thread: " << threadName << endl;
-                
                 matchingThreads.emplace_back(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
                     ref(matchedLocations[gridRow][gridColumn][i]),
                     ref(matchedConfidences[gridRow][gridColumn][i]),
@@ -220,14 +205,11 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
         }
     }
 
-    int i = 0;
     for (thread& t : matchingThreads)
     {
         if (t.joinable())
         {
             t.join();
-            cout << "Joined thread: " << threadNames[i] << endl;
-            i++;
         }
         else
         {
@@ -399,9 +381,6 @@ int main()
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
         matchTemplates2(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
-
-
-
 
 
 
