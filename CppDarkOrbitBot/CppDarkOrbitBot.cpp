@@ -14,6 +14,7 @@
 
 #include "Constants.h"
 #include "BotUtils.h"
+#include "ThreadPool.h"
 
 using namespace std;
 using namespace cv;
@@ -175,7 +176,8 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
-void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
+void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, 
+    vector<string> &templateNames, ThreadPool &threadPool)
 {
     double confidenceThreshold = 0.75;
 
@@ -196,27 +198,21 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
             // for each template needed to be matched for each grid cell
             for (int i = 0; i < templateGrayscales.size(); i++)
             {
-                matchingThreads.emplace_back(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                threadPool.enqueue(std::bind(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
                     ref(matchedLocations[gridRow][gridColumn][i]),
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
-                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));
+                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i])));
+
+                /*matchingThreads.emplace_back(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                    ref(matchedLocations[gridRow][gridColumn][i]),
+                    ref(matchedConfidences[gridRow][gridColumn][i]),
+                    ref(matchedRectangles[gridRow][gridColumn][i]),
+                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));*/
             }
         }
     }
-
-    for (thread& t : matchingThreads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-        else
-        {
-            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
-            cout << "COULDNT JOIN THREAD???";
-        }
-    }
+    threadPool.waitForCompletion();
 
     // templates - matches
     vector<vector<Point>> aggregatedMatchedLocations(templateGrayscales.size());
@@ -323,6 +319,8 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
 
 int main() 
 {
+    long long initialisationStart = getCurrentMillis();
+
     initializeConsoleHandle();
 
     darkOrbitHandle = FindWindow(NULL, L"DarkOrbit");
@@ -341,7 +339,7 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<string> pngPaths = {
-        "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
+        //"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png",
     };
@@ -362,6 +360,12 @@ int main()
     float averageMillis = 0.0f;
     float averageFPS = 0.0f;
 
+    ThreadPool threadPool(12);
+
+    int initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
+
     while (true)
     {
         // keep track of when the loop starts
@@ -380,7 +384,10 @@ int main()
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        matchTemplates2(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames);
+        matchTemplates2(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, threadPool);
+
+
+        // TODO: thread pooling
 
 
 
