@@ -176,18 +176,14 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
-void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, 
-    vector<string> &templateNames, ThreadPool &threadPool)
+void matchTemplatesParallel(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, 
+    vector<string> &templateNames, double confidenceThreshold, ThreadPool &threadPool)
 {
-    double confidenceThreshold = 0.75;
-
     // rows - columns - templates - matches
     vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
     vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templateGrayscales.size())));
     vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templateGrayscales.size())));
     vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
-
-    vector<thread> matchingThreads;
 
     // for each row of the grid
     for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
@@ -203,12 +199,6 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
                     ref(deduplicatedMatchIndexes[gridRow][gridColumn][i])));
-
-                /*matchingThreads.emplace_back(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
-                    ref(matchedLocations[gridRow][gridColumn][i]),
-                    ref(matchedConfidences[gridRow][gridColumn][i]),
-                    ref(matchedRectangles[gridRow][gridColumn][i]),
-                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i]));*/
             }
         }
     }
@@ -247,10 +237,6 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
 
                     int deduplicatedMatchIndex = deduplicatedMatchIndexes[gridRow][gridColumn][i][j];
 
-                    Point initialPoint = Point(
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x,
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y);
-
                     Point adjustedPoint = Point(
                         matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset,
                         matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset);
@@ -274,8 +260,6 @@ void matchTemplates2(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> 
     {
         drawMatchedTargets2(aggregatedMatchedRectangles[i], aggregatedMatchedConfidences[i], screenshot, templateNames[i]);
     }
-
-    //this_thread::sleep_for(seconds(5));
 }
 
 vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int overlapAmount) 
@@ -347,11 +331,13 @@ int main()
     vector<Mat> templateAlphas;
     vector<string> templateNames;
 
-    int screenshotGridColumns = 1;
-    int screenshotGridRows = 1;
+    int screenshotGridColumns = 5;
+    int screenshotGridRows = 3;
     int screenshotOffset = 50;
 
-    int threadCount = 25;
+    int threadCount = 15;
+
+    double confidenceThreshold = 0.75;
 
     float totalTime = 0.0f;
     float totalFrames = 0.0f;
@@ -372,15 +358,10 @@ int main()
 
     setConsoleStyle(DEFAULT);
 
-    int initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
+    long long initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
     setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
     cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
     setConsoleStyle(DEFAULT);
-
-    long long benchmarkStart = getCurrentMillis();
-    long long benchmarkDuration = 60000;
-    int maxScreenshotColumns = 5;
-    int maxScreenshotRows = 5;
 
     while (true)
     {
@@ -398,15 +379,12 @@ int main()
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
-        matchTemplates2(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, threadPool);
-
-
-        // TODO: thread pooling
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool);
 
 
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
-        int duration = computeMillisPassed(start, getCurrentMillis());
+        long long duration = computeMillisPassed(start, getCurrentMillis());
         string frameRate;
         string averageFrameRate;
         computeFrameRate(duration, totalTime, totalFrames, frameRate, averageFrameRate);
@@ -418,39 +396,6 @@ int main()
         // show the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
-
-
-        if (computeMillisPassed(benchmarkStart, getCurrentMillis()) > benchmarkDuration)
-        {
-            setConsoleStyle(BLUE_TEXT_BLACK_BACKGROUND);
-            cout << screenshotGridColumns << " x " << screenshotGridRows << " : " << averageFrameRate << endl;
-            setConsoleStyle(DEFAULT);
-
-            if (screenshotGridColumns == maxScreenshotColumns && screenshotGridRows == maxScreenshotRows)
-            {
-                setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
-                cout << "Benchmark done";
-                setConsoleStyle(DEFAULT);
-                exit(EXIT_SUCCESS);
-            }
-            else if (screenshotGridColumns < maxScreenshotColumns)
-            {
-                screenshotGridColumns++;
-            }
-            else if (screenshotGridColumns == maxScreenshotColumns)
-            {
-                screenshotGridColumns = 1;
-                screenshotGridRows++;
-            }
-
-            benchmarkStart = getCurrentMillis();
-
-            totalTime = 0.0f;
-            totalFrames = 0.0f;
-            frameCount = 0;
-            averageMillis = 0.0f;
-            averageFPS = 0.0f;
-        }
     }
 
     cv::destroyAllWindows();
