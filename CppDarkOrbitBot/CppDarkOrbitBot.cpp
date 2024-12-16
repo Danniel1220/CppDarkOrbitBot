@@ -74,10 +74,16 @@ void drawMatchedTargets(vector<int> selectedIndices, vector<Rect> boxes, vector<
 
 void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
 {
+    Scalar color;
+
+    if (templateName == "prometium1.png") color = Scalar(0, 255, 0); // green
+    else if (templateName == "cargo_icon.png") color = Scalar(0, 0, 255); // red
+    else color = Scalar(255, 255, 255); //fallback to white in case something went wrong
+
     for (int i = 0; i < rectangles.size(); i++)
     {
         // drawing rectangle
-        cv::rectangle(screenshot, rectangles[i], Scalar(0, 255, 0), 2);
+        cv::rectangle(screenshot, rectangles[i], color, 2);
 
         // creating label with confidence score
         ostringstream labelStream;
@@ -91,7 +97,7 @@ void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Ma
         if (labelPos.y < 0) labelPos.y = rectangles[i].y + labelSize.height + 10; // adjust if too close to top edge
 
         // drawing background rectangle for the label
-        cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), Scalar(0, 255, 0), FILLED);
+        cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
 
         // drawing the label text
         cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
@@ -113,10 +119,13 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
     cv::matchTemplate(grayscaleScreenshot, templateGrayscale, result, matchMode, templateAlpha);
 
     // finding matches above threshold
-    for (int y = 0; y < result.rows; y++) {
-        for (int x = 0; x < result.cols; x++) {
+    for (int y = 0; y < result.rows; y++) 
+    {
+        for (int x = 0; x < result.cols; x++) 
+        {
             double score = result.at<float>(y, x);
-            if (score >= confidenceThreshold && !isinf(score)) {
+            if (score >= confidenceThreshold && !isinf(score)) 
+            {
                 matchLocations.push_back(Point(x, y));
                 matchScores.push_back(score);
             }
@@ -129,7 +138,7 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
         matchRectangles.emplace_back(Rect(loc, templateGrayscale.size()));
     }
 
-    // applying Non-Maximum Suppression
+    // applying Non-Maximum Suppression to remove duplicate matches
     double nmsThreshold = 0.3;  // overlap threshold for NMS
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 }
@@ -194,7 +203,13 @@ void matchTemplatesParallel(Mat& screenshot, int screenshotOffset, vector<vector
             // for each template needed to be matched for each grid cell
             for (int i = 0; i < templateGrayscales.size(); i++)
             {
-                threadPool.enqueue(std::bind(matchSingleTemplate, screenshotGrid[gridRow][gridColumn], templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
+                threadPool.enqueue(std::bind(matchSingleTemplate, 
+                    screenshotGrid[gridRow][gridColumn], 
+                    templateGrayscales[i], 
+                    templateAlphas[i], 
+                    templateNames[i], 
+                    TM_CCOEFF_NORMED, 
+                    confidenceThreshold,
                     ref(matchedLocations[gridRow][gridColumn][i]),
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
@@ -300,7 +315,6 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
     return imageGrid;
 }
 
-
 int main() 
 {
     long long initialisationStart = getCurrentMillis();
@@ -380,8 +394,6 @@ int main()
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool);
-
-
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
         long long duration = computeMillisPassed(start, getCurrentMillis());
