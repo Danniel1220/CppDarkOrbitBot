@@ -185,8 +185,9 @@ void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat
     }
 }
 
-void matchTemplatesParallel(Mat& screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, 
-    vector<string> &templateNames, double confidenceThreshold, ThreadPool &threadPool)
+void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas,
+    vector<string> &templateNames, double confidenceThreshold, ThreadPool &threadPool, 
+    vector<vector<Point>> &resultMatchedLocations, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
     // rows - columns - templates - matches
     vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
@@ -218,12 +219,6 @@ void matchTemplatesParallel(Mat& screenshot, int screenshotOffset, vector<vector
         }
     }
     threadPool.waitForCompletion();
-
-    // templates - matches
-    vector<vector<Point>> aggregatedMatchedLocations(templateGrayscales.size());
-    vector<vector<double>> aggregatedMatchedConfidences(templateGrayscales.size());
-    vector<vector<Rect>> aggregatedMatchedRectangles(templateGrayscales.size());
-    vector<vector<int>> aggregatedDeduplicatedMatchIndexes(templateGrayscales.size());
 
     // grabbing the size of the grid
     int gridSizeX = screenshotGrid[0][0].cols - screenshotOffset;
@@ -262,18 +257,12 @@ void matchTemplatesParallel(Mat& screenshot, int screenshotOffset, vector<vector
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
 
-                    aggregatedMatchedLocations[i].emplace_back(adjustedPoint);
-                    aggregatedMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
-                    aggregatedMatchedRectangles[i].emplace_back(adjustedRect);
+                    resultMatchedLocations[i].emplace_back(adjustedPoint);
+                    resultMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
+                    resultMatchedRectangles[i].emplace_back(adjustedRect);
                 }
             }
         }
-    }
-
-    // drawing all the matches
-    for (int i = 0; i < templateNames.size(); i++)
-    {
-        drawMatchedTargets2(aggregatedMatchedRectangles[i], aggregatedMatchedConfidences[i], screenshot, templateNames[i]);
     }
 }
 
@@ -362,6 +351,11 @@ int main()
     loadImages(pngPaths, templateGrayscales, templateAlphas);
     extractPngNames(pngPaths, templateNames);
 
+    // templates - matches
+    vector<vector<Point>> matchedLocations(templateGrayscales.size());
+    vector<vector<double>> matchedConfidences(templateGrayscales.size());
+    vector<vector<Rect>> matchedRectangles(templateGrayscales.size());
+
     setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
     cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
     cout << "Screenshot offset: " << screenshotOffset << endl;
@@ -382,18 +376,25 @@ int main()
         // keep track of when the loop starts
         long long start = getCurrentMillis();
 
+        // clearing previous frame's matched
+        for (vector<Point> &v : matchedLocations) v.clear();
+        for (vector<double> &v : matchedConfidences) v.clear();
+        for (vector<Rect> &v : matchedRectangles) v.clear();
+
         Mat screenshot = screenshotWindow(darkOrbitHandle);
-        if (screenshot.empty()) {
-            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
-            cout << "Failed to capture the window as Mat." << endl;
-            return -1;
-        }
+
 
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
 
-        //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
+            matchedLocations, matchedConfidences, matchedRectangles);
 
-        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool);
+        // drawing all the matches
+        for (int i = 0; i < templateNames.size(); i++) 
+            drawMatchedTargets2(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
+
+
+
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
         long long duration = computeMillisPassed(start, getCurrentMillis());
