@@ -43,35 +43,6 @@ void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, st
     averageFPSString = averageFrameRateStream.str();
 }
 
-void drawMatchedTargets(vector<int> selectedIndices, vector<Rect> boxes, vector<double> matchScores, Mat &screenshot, string templateName)
-{
-    // Draw the final matches with labels
-    for (int idx : selectedIndices) {
-        const Rect& box = boxes[idx];
-        double confidence = matchScores[idx];
-
-        // Draw rectangle
-        cv::rectangle(screenshot, box, Scalar(0, 255, 0), 2);
-
-        // Create label with confidence score
-        std::ostringstream labelStream;
-        labelStream << std::fixed << std::setprecision(2) << confidence;
-        std::string label = templateName + " | " + labelStream.str();
-
-        // Calculate position for the label
-        int baseLine = 0;
-        Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-        Point labelPos(box.x, box.y - 10); // Position above the rectangle
-        if (labelPos.y < 0) labelPos.y = box.y + labelSize.height + 10; // Adjust if too close to top edge
-
-        // Draw background rectangle for the label
-        cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), Scalar(0, 255, 0), FILLED);
-
-        // Put the label text
-        cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
-    }
-}
-
 void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
 {
     Scalar color;
@@ -141,48 +112,6 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
     // applying Non-Maximum Suppression to remove duplicate matches
     double nmsThreshold = 0.3;  // overlap threshold for NMS
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
-}
-
-void matchTemplates(Mat &screenshot, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas, vector<string> &templateNames)
-{
-    Mat grayscaleScreenshot;
-    cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
-
-    // Threshold for match confidence
-    double confidenceThreshold = 0.75;
-
-    vector<vector<Point>> matchedLocations(templateGrayscales.size());
-    vector<vector<double>> matchedConfidences(templateGrayscales.size());
-    vector<vector<Rect>> matchedRectangles(templateGrayscales.size());
-    vector<vector<int>> deduplicatedMatchIndexes(templateGrayscales.size());
-
-    vector<thread> matchingThreads;
-
-    for (int i = 0; i < templateGrayscales.size(); i++)
-    {
-        matchingThreads.emplace_back(matchSingleTemplate, screenshot, templateGrayscales[i], templateAlphas[i], templateNames[i], TM_CCOEFF_NORMED, confidenceThreshold,
-            ref(matchedLocations[i]), ref(matchedConfidences[i]), ref(matchedRectangles[i]), ref(deduplicatedMatchIndexes[i]));
-    }
-
-    cout << endl;
-
-    for (thread &t : matchingThreads) {
-        if (t.joinable()) 
-        {
-            t.join();
-        }
-        else
-        {
-            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
-            cout << "COULDNT JOIN THREAD???";
-        }
-    }
-
-    cout << endl;
-    for (int i = 0; i < templateGrayscales.size(); i++)
-    {
-        drawMatchedTargets(deduplicatedMatchIndexes[i], matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
-    }
 }
 
 void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas,
@@ -392,6 +321,7 @@ int main()
         // drawing all the matches
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets2(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
+
 
 
 
