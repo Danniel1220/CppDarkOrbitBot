@@ -23,6 +23,21 @@ using namespace chrono;
 
 HWND darkOrbitHandle;
 
+enum TemplateIdentifier {
+    PALLADIUM = 0,
+    PROMETIUM = 1,
+    CARGO_ICON = 2
+};
+
+struct {
+
+} Template;
+
+double distanceBetweenPoints(Point a, Point b) 
+{
+    return sqrt(pow((b.x - a.x), 2) + pow((b.y - a.y), 2));
+}
+
 int main() 
 {
     long long initialisationStart = getCurrentMillis();
@@ -45,7 +60,7 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<string> pngPaths = {
-        //"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
+        "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png",
     };
@@ -80,9 +95,7 @@ int main()
     cout << "Screenshot offset: " << screenshotOffset << endl;
 
     ThreadPool threadPool(threadCount);
-    
     cout << "Started " << threadCount << " worker threads" << endl;
-
     setConsoleStyle(DEFAULT);
 
     long long initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
@@ -95,24 +108,50 @@ int main()
         // keep track of when the loop starts
         long long start = getCurrentMillis();
 
-        // clearing previous frame's matched
+        // clearing previous frame's matches
         for (vector<Point> &v : matchedLocations) v.clear();
         for (vector<double> &v : matchedConfidences) v.clear();
         for (vector<Rect> &v : matchedRectangles) v.clear();
 
         Mat screenshot = screenshotWindow(darkOrbitHandle);
-
-
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
 
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
             matchedLocations, matchedConfidences, matchedRectangles);
 
-        // drawing all the matches
+        Point closestResourcePoint;
+        Rect closestResourceRect;
+        double closestResourceDistance = screenshot.cols;
+        int closestResourceIndex = -1;
+
+        // find the closest prometium match
+        for (int i = 0; i < matchedLocations[PROMETIUM].size(); i++)
+        {
+            double distance = distanceBetweenPoints(Point(0, 0), matchedLocations[PROMETIUM][i]);
+            if (distance < closestResourceDistance)
+            {
+                closestResourceDistance = distance;
+                closestResourcePoint = matchedLocations[PROMETIUM][i];
+                closestResourceRect = matchedRectangles[PROMETIUM][i];
+                closestResourceIndex = i;
+            }
+        }
+        if (closestResourceIndex != -1)
+        {
+            // removing the closest match from the vector so that it wont get drawn like the other matches
+            matchedLocations[PROMETIUM].erase(matchedLocations[PROMETIUM].begin() + closestResourceIndex);
+            matchedRectangles[PROMETIUM].erase(matchedRectangles[PROMETIUM].begin() + closestResourceIndex);
+        }
+        else
+        {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+        }
+
+        // drawing matches
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
 
-
+        drawSingleTargetOnScreenshot(screenshot, closestResourceRect, -1, "???", Scalar(255, 255, 255));
 
 
 

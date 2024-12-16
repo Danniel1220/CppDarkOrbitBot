@@ -10,7 +10,7 @@
 using namespace std;
 using namespace cv;
 
-void drawMatchedTargets(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
+void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, Mat &screenshot, string templateName)
 {
     Scalar color;
 
@@ -20,6 +20,8 @@ void drawMatchedTargets(vector<Rect> rectangles, vector<double> confidences, Mat
 
     for (int i = 0; i < rectangles.size(); i++)
     {
+        drawSingleTargetOnScreenshot(screenshot, rectangles[i], confidences[i], templateName, color);
+
         // drawing rectangle
         cv::rectangle(screenshot, rectangles[i], color, 2);
 
@@ -40,6 +42,29 @@ void drawMatchedTargets(vector<Rect> rectangles, vector<double> confidences, Mat
         // drawing the label text
         cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
     }
+}
+
+void drawSingleTargetOnScreenshot(Mat &screenshot, Rect rectangle, double confidence, string name, Scalar color)
+{
+    // drawing rectangle
+    cv::rectangle(screenshot, rectangle, color, 2);
+
+    // creating label with confidence score
+    ostringstream labelStream;
+    labelStream << std::fixed << std::setprecision(2) << confidence;
+    string label = name + " | " + labelStream.str();
+
+    // calculating position for the label (so it doesnt go off screen
+    int baseLine = 0;
+    Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+    Point labelPos(rectangle.x, rectangle.y - 10); // position above the rectangle
+    if (labelPos.y < 0) labelPos.y = rectangle.y + labelSize.height + 10; // adjust if too close to top edge
+
+    // drawing background rectangle for the label
+    cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
+
+    // drawing the label text
+    cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
 }
 
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
