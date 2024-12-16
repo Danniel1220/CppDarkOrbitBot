@@ -22,28 +22,7 @@ using namespace chrono;
 
 HWND darkOrbitHandle;
 
-void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString)
-{
-    float currentFPS = 1 / (float(loopDuration) / 1000);
-
-    totalTime += loopDuration;
-    totalFrames++;
-
-    float averageMillis = totalTime / totalFrames;
-    float averageFPS = 1 / (averageMillis / 1000);
-
-    stringstream frameRateStream;
-    stringstream averageFrameRateStream;
-    frameRateStream << fixed << setprecision(2);
-    averageFrameRateStream << fixed << setprecision(2);
-    frameRateStream << loopDuration << " ms | " << currentFPS << " FPS";
-    averageFrameRateStream << averageMillis << " ms | " << averageFPS << " FPS | avg";
-
-    currentFPSString = frameRateStream.str();
-    averageFPSString = averageFrameRateStream.str();
-}
-
-void drawMatchedTargets2(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
+void drawMatchedTargets(vector<Rect> rectangles, vector<double> confidences, Mat &screenshot, string templateName)
 {
     Scalar color;
 
@@ -320,7 +299,7 @@ int main()
 
         // drawing all the matches
         for (int i = 0; i < templateNames.size(); i++) 
-            drawMatchedTargets2(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
+            drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
 
 
 

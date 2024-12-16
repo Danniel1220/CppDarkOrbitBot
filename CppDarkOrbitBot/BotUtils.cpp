@@ -273,3 +273,24 @@ long long computeMillisPassed(long long start, long long finish)
 {
     return finish - start;
 }
+
+void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString)
+{
+    float currentFPS = 1 / (float(loopDuration) / 1000);
+
+    totalTime += loopDuration;
+    totalFrames++;
+
+    float averageMillis = totalTime / totalFrames;
+    float averageFPS = 1 / (averageMillis / 1000);
+
+    stringstream frameRateStream;
+    stringstream averageFrameRateStream;
+    frameRateStream << fixed << setprecision(2);
+    averageFrameRateStream << fixed << setprecision(2);
+    frameRateStream << loopDuration << " ms | " << currentFPS << " FPS";
+    averageFrameRateStream << averageMillis << " ms | " << averageFPS << " FPS | avg";
+
+    currentFPSString = frameRateStream.str();
+    averageFPSString = averageFrameRateStream.str();
+}

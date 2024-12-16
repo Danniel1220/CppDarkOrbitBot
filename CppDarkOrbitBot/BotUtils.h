@@ -19,5 +19,6 @@ double calculateIoU(const cv::Rect& a, const cv::Rect& b);
 void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices);
 long long getCurrentMillis();
 long long computeMillisPassed(long long start, long long finish);
+void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString);
 
 #endif
