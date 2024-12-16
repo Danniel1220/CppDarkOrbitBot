@@ -142,12 +142,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BotCV.cpp" />
     <ClCompile Include="Constants.cpp" />
     <ClCompile Include="CppDarkOrbitBot.cpp" />
     <ClCompile Include="BotUtils.cpp" />
     <ClCompile Include="ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BotCV.h" />
     <ClInclude Include="BotUtils.h" />
     <ClInclude Include="Constants.h" />
     <ClInclude Include="CppDarkOrbitBot.h" />
