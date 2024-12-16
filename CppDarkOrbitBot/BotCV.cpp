@@ -68,7 +68,7 @@ void drawSingleTargetOnScreenshot(Mat &screenshot, Rect rectangle, double confid
 }
 
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
-    vector<Point> &matchLocations, vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
+    vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes)
 {
     Mat grayscaleScreenshot;
     cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
@@ -89,16 +89,10 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
             double score = result.at<float>(y, x);
             if (score >= confidenceThreshold && !isinf(score)) 
             {
-                matchLocations.push_back(Point(x, y));
-                matchScores.push_back(score);
+                matchRectangles.emplace_back(Point(x, y), templateGrayscale.size());
+                matchScores.emplace_back(score);
             }
         }
-    }
-
-    // converting locations to rectangles
-    for (const auto& loc : matchLocations) 
-    {
-        matchRectangles.emplace_back(Rect(loc, templateGrayscale.size()));
     }
 
     // applying Non-Maximum Suppression to remove duplicate matches
@@ -111,7 +105,6 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
     // rows - columns - templates - matches
-    vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
     vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templateGrayscales.size())));
     vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templateGrayscales.size())));
     vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
@@ -132,7 +125,6 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                     templateNames[i], 
                     TM_CCOEFF_NORMED, 
                     confidenceThreshold,
-                    ref(matchedLocations[gridRow][gridColumn][i]),
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
                     ref(deduplicatedMatchIndexes[gridRow][gridColumn][i])));
@@ -168,13 +160,9 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
 
                     int deduplicatedMatchIndex = deduplicatedMatchIndexes[gridRow][gridColumn][i][j];
 
-                    Point adjustedPoint = Point(
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset,
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset);
-
                     Rect adjustedRect = Rect(
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset, 
-                        matchedLocations[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset,
+                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset, 
+                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset,
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
 
