@@ -301,8 +301,8 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
             Rect gridCellRect = Rect(
                 j * gridCellWidth - (j == 0 ? 0 : overlapAmount),
                 i * gridCellHeight - (i == 0 ? 0 : overlapAmount),
-                gridCellWidth + (j == 0 || j == gridWidth - 1 ? overlapAmount : overlapAmount * 2),
-                gridCellHeight + (i == 0 || i == gridHeight - 1 ? overlapAmount : overlapAmount * 2));
+                gridCellWidth + (j == 0 && j == gridWidth - 1 ? 0 : (j == 0 || j == gridWidth - 1 ? overlapAmount : overlapAmount * 2)),
+                gridCellHeight + (i == 0 && i == gridHeight - 1 ? 0 : (i == 0 || i == gridHeight - 1 ? overlapAmount : overlapAmount * 2)));
             Mat gridCell = image(gridCellRect);
             
             gridRow.emplace_back(gridCell);
@@ -347,12 +347,11 @@ int main()
     vector<Mat> templateAlphas;
     vector<string> templateNames;
 
-    loadImages(pngPaths, templateGrayscales, templateAlphas);
-    extractPngNames(pngPaths, templateNames);
+    int screenshotGridColumns = 1;
+    int screenshotGridRows = 1;
+    int screenshotOffset = 50;
 
-    //showImages(templateGrayscales, "gray");
-    //showImages(templateAlphas, "alpha");
-    //cv::waitKey();
+    int threadCount = 25;
 
     float totalTime = 0.0f;
     float totalFrames = 0.0f;
@@ -360,11 +359,28 @@ int main()
     float averageMillis = 0.0f;
     float averageFPS = 0.0f;
 
-    ThreadPool threadPool(12);
+    loadImages(pngPaths, templateGrayscales, templateAlphas);
+    extractPngNames(pngPaths, templateNames);
+
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
+    cout << "Screenshot offset: " << screenshotOffset << endl;
+
+    ThreadPool threadPool(threadCount);
+    
+    cout << "Started " << threadCount << " worker threads" << endl;
+
+    setConsoleStyle(DEFAULT);
 
     int initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
-    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
     cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
+    setConsoleStyle(DEFAULT);
+
+    long long benchmarkStart = getCurrentMillis();
+    long long benchmarkDuration = 60000;
+    int maxScreenshotColumns = 5;
+    int maxScreenshotRows = 5;
 
     while (true)
     {
@@ -378,9 +394,7 @@ int main()
             return -1;
         }
 
-        int screenshotOffset = 50;
-
-        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, 3, 3, screenshotOffset);
+        vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
 
         //matchTemplates(screenshot, templateGrayscales, templateAlphas, templateNames);
 
@@ -404,6 +418,39 @@ int main()
         // show the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
+
+
+        if (computeMillisPassed(benchmarkStart, getCurrentMillis()) > benchmarkDuration)
+        {
+            setConsoleStyle(BLUE_TEXT_BLACK_BACKGROUND);
+            cout << screenshotGridColumns << " x " << screenshotGridRows << " : " << averageFrameRate << endl;
+            setConsoleStyle(DEFAULT);
+
+            if (screenshotGridColumns == maxScreenshotColumns && screenshotGridRows == maxScreenshotRows)
+            {
+                setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
+                cout << "Benchmark done";
+                setConsoleStyle(DEFAULT);
+                exit(EXIT_SUCCESS);
+            }
+            else if (screenshotGridColumns < maxScreenshotColumns)
+            {
+                screenshotGridColumns++;
+            }
+            else if (screenshotGridColumns == maxScreenshotColumns)
+            {
+                screenshotGridColumns = 1;
+                screenshotGridRows++;
+            }
+
+            benchmarkStart = getCurrentMillis();
+
+            totalTime = 0.0f;
+            totalFrames = 0.0f;
+            frameCount = 0;
+            averageMillis = 0.0f;
+            averageFPS = 0.0f;
+        }
     }
 
     cv::destroyAllWindows();

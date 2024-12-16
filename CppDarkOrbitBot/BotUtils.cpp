@@ -269,7 +269,7 @@ long long getCurrentMillis()
     return duration.count();
 }
 
-int computeMillisPassed(long long start, long long finish)
+long long computeMillisPassed(long long start, long long finish)
 {
     return finish - start;
 }
