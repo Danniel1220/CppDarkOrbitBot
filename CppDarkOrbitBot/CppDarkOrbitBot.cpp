@@ -29,13 +29,33 @@ enum TemplateIdentifier {
     CARGO_ICON = 2
 };
 
-struct {
+struct TemplateMatch 
+{
+    Rect rect;
+    double confidence;
+    TemplateIdentifier identifier;
 
-} Template;
+    bool operator()(const TemplateMatch &a, const TemplateMatch &b) const 
+    {
+        return (a.rect.x == b.rect.x) ? a.rect.y < b.rect.y : a.rect.x < b.rect.x;
+    }
+};
 
-double distanceBetweenPoints(Point a, Point b) 
+double distanceBetweenPoints(Point &a, Point &b) 
 {
     return sqrt(pow((b.x - a.x), 2) + pow((b.y - a.y), 2));
+}
+
+double distanceBetweenPoints(Point &a) 
+{
+    // only passing 1 point will be considered will return the distance between the point and the origin (0,0)
+    return sqrt(pow((a.x), 2) + pow((a.y), 2));
+}
+
+double distanceBetweenPoints(int &x, int &y) 
+{
+    // only passing 1 point will be considered will return the distance between the point and the origin (0,0)
+    return sqrt(pow(x, 2) + pow(y, 2));
 }
 
 int main() 
@@ -86,9 +106,8 @@ int main()
     extractPngNames(pngPaths, templateNames);
 
     // templates - matches
-    vector<vector<Point>> matchedLocations(templateGrayscales.size());
-    vector<vector<double>> matchedConfidences(templateGrayscales.size());
     vector<vector<Rect>> matchedRectangles(templateGrayscales.size());
+    vector<vector<double>> matchedConfidences(templateGrayscales.size());
 
     setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
     cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
@@ -109,15 +128,14 @@ int main()
         long long start = getCurrentMillis();
 
         // clearing previous frame's matches
-        for (vector<Point> &v : matchedLocations) v.clear();
-        for (vector<double> &v : matchedConfidences) v.clear();
         for (vector<Rect> &v : matchedRectangles) v.clear();
+        for (vector<double> &v : matchedConfidences) v.clear();
 
         Mat screenshot = screenshotWindow(darkOrbitHandle);
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
 
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
-            matchedLocations, matchedConfidences, matchedRectangles);
+            matchedConfidences, matchedRectangles);
 
         Point closestResourcePoint;
         Rect closestResourceRect;
@@ -125,13 +143,13 @@ int main()
         int closestResourceIndex = -1;
 
         // find the closest prometium match
-        for (int i = 0; i < matchedLocations[PROMETIUM].size(); i++)
+        for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
         {
-            double distance = distanceBetweenPoints(Point(0, 0), matchedLocations[PROMETIUM][i]);
+            // this returns distance between the point and 0,0 where the ship is
+            double distance = distanceBetweenPoints(matchedRectangles[PROMETIUM][i].x, matchedRectangles[PROMETIUM][i].y);
             if (distance < closestResourceDistance)
             {
                 closestResourceDistance = distance;
-                closestResourcePoint = matchedLocations[PROMETIUM][i];
                 closestResourceRect = matchedRectangles[PROMETIUM][i];
                 closestResourceIndex = i;
             }
@@ -139,12 +157,7 @@ int main()
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
-            matchedLocations[PROMETIUM].erase(matchedLocations[PROMETIUM].begin() + closestResourceIndex);
             matchedRectangles[PROMETIUM].erase(matchedRectangles[PROMETIUM].begin() + closestResourceIndex);
-        }
-        else
-        {
-            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
         }
 
         // drawing matches

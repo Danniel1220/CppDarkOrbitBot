@@ -108,7 +108,7 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
 
 void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Mat> &templateGrayscales, vector<Mat> &templateAlphas,
     vector<string> &templateNames, double confidenceThreshold, ThreadPool &threadPool, 
-    vector<vector<Point>> &resultMatchedLocations, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
+    vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
     // rows - columns - templates - matches
     vector<vector<vector<vector<Point>>>> matchedLocations(screenshotGrid.size(), vector<vector<vector<Point>>>(screenshotGrid[0].size(), vector<vector<Point>>(templateGrayscales.size())));
@@ -178,7 +178,6 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
 
-                    resultMatchedLocations[i].emplace_back(adjustedPoint);
                     resultMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
                     resultMatchedRectangles[i].emplace_back(adjustedRect);
                 }
