@@ -107,7 +107,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     // rows - columns - templates - matches
     vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templateGrayscales.size())));
     vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templateGrayscales.size())));
-    vector<vector<vector<vector<int>>>> deduplicatedMatchIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
+    vector<vector<vector<vector<int>>>> firstNMSPassDeduplicatedIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templateGrayscales.size())));
 
     // for each row of the grid
     for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
@@ -127,7 +127,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                     confidenceThreshold,
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
-                    ref(deduplicatedMatchIndexes[gridRow][gridColumn][i])));
+                    ref(firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i])));
             }
         }
     }
@@ -137,9 +137,13 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     int gridSizeX = screenshotGrid[0][0].cols - screenshotOffset;
     int gridSizeY = screenshotGrid[0][0].rows - screenshotOffset;
 
-    // going through all the matches from each thread and aggregating them into one structure
-    // also adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
+    // templates - matches
+    vector<vector<Rect>> firstNMSPassMatchedRectangles(templateGrayscales.size());
+    vector<vector<double>> firstNMSPassMatchedConfidences(templateGrayscales.size());
 
+    // going through all the matches from each thread and aggregating the deduplicated ones on the first pass of NMS into one structure
+    // also adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
+ 
     // for each row of the grid
     for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
     {
@@ -150,7 +154,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
             for (int i = 0; i < templateGrayscales.size(); i++)
             {        
                 // only for the deduplicated matches
-                for (int j = 0; j < deduplicatedMatchIndexes[gridRow][gridColumn][i].size(); j++)
+                for (int j = 0; j < firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i].size(); j++)
                 {
                     int overlapOffsetX = gridColumn == 0 ? 0 : -screenshotOffset;
                     int overlapOffsetY = gridRow == 0 ? 0 : -screenshotOffset;
@@ -158,7 +162,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                     int xOffset = gridColumn * gridSizeX + overlapOffsetX;
                     int yOffset = gridRow * gridSizeY + overlapOffsetY;
 
-                    int deduplicatedMatchIndex = deduplicatedMatchIndexes[gridRow][gridColumn][i][j];
+                    int deduplicatedMatchIndex = firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i][j];
 
                     Rect adjustedRect = Rect(
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset, 
@@ -166,10 +170,24 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
                         matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
 
-                    resultMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
-                    resultMatchedRectangles[i].emplace_back(adjustedRect);
+                    firstNMSPassMatchedRectangles[i].emplace_back(adjustedRect);
+                    firstNMSPassMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
                 }
             }
+        }
+    }
+
+    // applying a second pass of NMS for each template because there might still be duplicates caused by the overlapping screenshot grid cells
+    vector<vector<int>> secondNMSPassDeduplicatedIndexes(templateGrayscales.size());
+    // for each template
+    for (int i = 0; i < firstNMSPassMatchedRectangles.size(); i++)
+    {
+        applyNMS(firstNMSPassMatchedRectangles[i], firstNMSPassMatchedConfidences[i], 0.3, secondNMSPassDeduplicatedIndexes[i]);
+        // placing the deduplicated matches into the final result vectors
+        for (int j = 0; j < secondNMSPassDeduplicatedIndexes[i].size(); j++)
+        {
+            resultMatchedRectangles[i].emplace_back(firstNMSPassMatchedRectangles[i][secondNMSPassDeduplicatedIndexes[i][j]]);
+            resultMatchedConfidences[i].emplace_back(firstNMSPassMatchedConfidences[i][secondNMSPassDeduplicatedIndexes[i][j]]);
         }
     }
 }
@@ -303,7 +321,7 @@ double calculateIoU(const cv::Rect& a, const cv::Rect& b) {
     return static_cast<double>(intersection) / unionArea;
 }
 
-void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices) {
+void applyNMS(const vector<Rect> &boxes, const vector<double> &scores, double nmsThreshold, vector<int> &indices) {
     vector<int> sortedIndices(boxes.size());
     iota(sortedIndices.begin(), sortedIndices.end(), 0);
 
