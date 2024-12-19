@@ -46,16 +46,17 @@ double distanceBetweenPoints(Point &a, Point &b)
     return sqrt(pow((b.x - a.x), 2) + pow((b.y - a.y), 2));
 }
 
-double distanceBetweenPoints(Point &a) 
+double pointToOriginDistance(Point &a) 
 {
     // only passing 1 point will be considered will return the distance between the point and the origin (0,0)
     return sqrt(pow((a.x), 2) + pow((a.y), 2));
 }
 
-double distanceBetweenPoints(int &x, int &y) 
+double pointToScreenshotCenterDistance(int &x, int &y, int screenWidth, int screenHeight)
 {
-    // only passing 1 point will be considered will return the distance between the point and the origin (0,0)
-    return sqrt(pow(x, 2) + pow(y, 2));
+    Point screenshotCenter = Point(screenWidth / 2, screenHeight / 2);
+
+    return sqrt(pow((screenshotCenter.x - x), 2) + pow((screenshotCenter.y - y), 2));
 }
 
 int main() 
@@ -137,20 +138,21 @@ int main()
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
             matchedConfidences, matchedRectangles);
 
-        Point closestResourcePoint;
         Rect closestResourceRect;
+        double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
 
         // find the closest prometium match
         for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
         {
-            // this returns distance between the point and 0,0 where the ship is
-            double distance = distanceBetweenPoints(matchedRectangles[PROMETIUM][i].x, matchedRectangles[PROMETIUM][i].y);
+            // this returns distance between the point and the center of the screenshot where the ship is
+            double distance = pointToScreenshotCenterDistance(matchedRectangles[PROMETIUM][i].x, matchedRectangles[PROMETIUM][i].y, screenshot.cols, screenshot.rows);
             if (distance < closestResourceDistance)
             {
                 closestResourceDistance = distance;
                 closestResourceRect = matchedRectangles[PROMETIUM][i];
+                closestResourceConfidence = matchedConfidences[PROMETIUM][i];
                 closestResourceIndex = i;
             }
         }
@@ -158,13 +160,23 @@ int main()
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
             matchedRectangles[PROMETIUM].erase(matchedRectangles[PROMETIUM].begin() + closestResourceIndex);
+            matchedConfidences[PROMETIUM].erase(matchedConfidences[PROMETIUM].begin() + closestResourceIndex);
+
+            // drawing closest resource separately to use a different color
+            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templateNames[PROMETIUM], Scalar(255, 255, 255));
+
+            // draw a line between the ship and the closest resource found
+            line(screenshot, 
+                Point(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2), 
+                Point(screenshot.cols / 2, screenshot.rows / 2), 
+                Scalar(255, 255, 255), 1, LINE_4, 0);
         }
 
         // drawing matches
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
 
-        drawSingleTargetOnScreenshot(screenshot, closestResourceRect, -1, "???", Scalar(255, 255, 255));
+        
 
 
 
@@ -174,7 +186,7 @@ int main()
         string averageFrameRate;
         computeFrameRate(duration, totalTime, totalFrames, frameRate, averageFrameRate);
 
-
+        
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
 
