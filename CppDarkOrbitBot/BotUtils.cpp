@@ -149,7 +149,15 @@ long long getCurrentMillis()
     return duration.count();
 }
 
-long long computeMillisPassed(long long start, long long finish)
+long long getCurrentMicros()
+{
+    std::chrono::time_point now = std::chrono::high_resolution_clock::now();
+    std:chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
+
+    return duration.count();
+}
+
+long long computeTimePassed(long long start, long long finish)
 {
     return finish - start;
 }

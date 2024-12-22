@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <filesystem>
@@ -24,9 +24,9 @@ using namespace chrono;
 HWND darkOrbitHandle;
 
 enum TemplateIdentifier {
-    PALLADIUM = 0,
-    PROMETIUM = 1,
-    CARGO_ICON = 2
+    //PALLADIUM = 0,
+    PROMETIUM = 0,
+    CARGO_ICON = 1
 };
 
 struct TemplateMatch 
@@ -81,7 +81,7 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<string> pngPaths = {
-        "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
+        //"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png",
         "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png",
     };
@@ -118,7 +118,7 @@ int main()
     cout << "Started " << threadCount << " worker threads" << endl;
     setConsoleStyle(DEFAULT);
 
-    long long initialisationDuration = computeMillisPassed(initialisationStart, getCurrentMillis());
+    long long initialisationDuration = computeTimePassed(initialisationStart, getCurrentMillis());
     setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
     cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
     setConsoleStyle(DEFAULT);
@@ -126,23 +126,35 @@ int main()
     while (true)
     {
         // keep track of when the loop starts
-        long long start = getCurrentMillis();
+        long long frameStart = getCurrentMillis();
+        long long timerStart;
 
+        timerStart = getCurrentMicros();
         // clearing previous frame's matches
         for (vector<Rect> &v : matchedRectangles) v.clear();
         for (vector<double> &v : matchedConfidences) v.clear();
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Clearing previous frame matches" << endl;
 
+        timerStart = getCurrentMillis();
         Mat screenshot = screenshotWindow(darkOrbitHandle);
+        cout << computeTimePassed(timerStart, getCurrentMillis()) << " ms - " << "Taking screenshot" << endl;
+        timerStart = getCurrentMicros();
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Dividing screenshot" << endl;
 
+        timerStart = getCurrentMillis();
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
             matchedConfidences, matchedRectangles);
+        cout << computeTimePassed(timerStart, getCurrentMillis()) << " ms - " << "Template matching" << endl;
 
+        timerStart = getCurrentMicros();
         Rect closestResourceRect;
         double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Declaring closest resource vars" << endl;
 
+        timerStart = getCurrentMicros();
         // find the closest prometium match
         for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
         {
@@ -156,6 +168,8 @@ int main()
                 closestResourceIndex = i;
             }
         }
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Closest resource loop" << endl;
+        timerStart = getCurrentMicros();
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
@@ -171,20 +185,23 @@ int main()
                 Point(screenshot.cols / 2, screenshot.rows / 2), 
                 Scalar(255, 255, 255), 1, LINE_4, 0);
         }
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Removing closest match from list and drawing it separately" << endl;
 
+        timerStart = getCurrentMicros();
         // drawing matches
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
-
+        cout << computeTimePassed(timerStart, getCurrentMicros()) << " micros - " << "Drawing matches on to the screen" << endl;
         
-
+        // TODO: add a property on each of the pngs to tell the matching function used for each of them as well as wether it should use the
+        // divided screenshot or not, additionally a thread counter for each frame that will be displayed as debug info on the bot screen
 
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
-        long long duration = computeMillisPassed(start, getCurrentMillis());
+        long long frameDuration = computeTimePassed(frameStart, getCurrentMicros());
         string frameRate;
         string averageFrameRate;
-        computeFrameRate(duration, totalTime, totalFrames, frameRate, averageFrameRate);
+        computeFrameRate(frameDuration, totalTime, totalFrames, frameRate, averageFrameRate);
 
         
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
@@ -193,6 +210,8 @@ int main()
         // show the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
+
+        break;
     }
 
     cv::destroyAllWindows();

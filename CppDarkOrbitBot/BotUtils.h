@@ -15,7 +15,8 @@ void testConsoleColors();
 void showImages(vector<Mat>& targetGrayImages, string name);
 void extractPngNames(vector<string> pngPaths, vector<string>& targetNames);
 long long getCurrentMillis();
-long long computeMillisPassed(long long start, long long finish);
+long long getCurrentMicros();
+long long computeTimePassed(long long start, long long finish);
 void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString);
 
 #endif
