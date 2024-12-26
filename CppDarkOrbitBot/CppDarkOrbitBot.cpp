@@ -99,9 +99,10 @@ int main()
 
     float totalTime = 0.0f;
     float totalFrames = 0.0f;
-    int frameCount = 0;
     float averageMillis = 0.0f;
     float averageFPS = 0.0f;
+
+    
 
     loadImages(pngPaths, templateGrayscales, templateAlphas);
     extractPngNames(pngPaths, templateNames);
@@ -125,43 +126,63 @@ int main()
 
     ScreenshotManager screenshotManager(darkOrbitHandle);
 
-    bool timeProfiling = false;
+    vector<string> timeProfilerSteps = {
+        "Clearing previous frames",
+        "Taking screenshot",
+        "Dividing screenshot",
+        "Template matching",
+        "Closest resource loop",
+        "Closest match drawing",
+        "Drawing matches"
+    };
+    vector<long long> timeProfilerTotalTimes(timeProfilerSteps.size(), 0);
+    vector<float> timeProfilerAverageTimes(timeProfilerSteps.size(), 0);
 
     while (true)
     {
         // keep track of when the loop starts
         long long frameStart = getCurrentMillis();
-        long long timerStart;
+        long long timeProfilerAux;
+        int profilingStep = 0;
 
-        timerStart = getCurrentMicros();
+
         // clearing previous frame's matches
+        timeProfilerAux = getCurrentMicros();
         for (vector<Rect> &v : matchedRectangles) v.clear();
         for (vector<double> &v : matchedConfidences) v.clear();
-        if (timeProfiling) printTimeProfiling(timerStart, "Clearing previous frame matches");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
 
-        timerStart = getCurrentMicros();
+
+        // capturing screenshot
+        timeProfilerAux = getCurrentMicros();
         Mat screenshot = screenshotManager.capture();
-        if (timeProfiling) printTimeProfiling(timerStart, "Taking screenshot");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
 
-        timerStart = getCurrentMicros();
+
+        // dividing screenshot
+        timeProfilerAux = getCurrentMicros();
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
-        if (timeProfiling) printTimeProfiling(timerStart, "Dividing screenshots");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
 
-        timerStart = getCurrentMicros();
+
+        // template matching
+        timeProfilerAux = getCurrentMicros();
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
             matchedConfidences, matchedRectangles);
-        if (timeProfiling) printTimeProfiling(timerStart, "Template matching");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
 
-        timerStart = getCurrentMicros();
+
+        // figuring out which match is closest
         Rect closestResourceRect;
         double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-        if (timeProfiling) printTimeProfiling(timerStart, "Declaring closest resource vars");
 
-
-        timerStart = getCurrentMicros();
-        // find the closest prometium match
+        timeProfilerAux = getCurrentMicros();
         for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
         {
             // this returns distance between the point and the center of the screenshot where the ship is
@@ -174,8 +195,12 @@ int main()
                 closestResourceIndex = i;
             }
         }
-        if (timeProfiling) printTimeProfiling(timerStart, "Closest resource loop");
-        timerStart = getCurrentMicros();
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
+
+
+        // closest match drawing
+        timeProfilerAux = getCurrentMicros();
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
@@ -191,33 +216,54 @@ int main()
                 Point(screenshot.cols / 2, screenshot.rows / 2), 
                 Scalar(255, 255, 255), 1, LINE_4, 0);
         }
-        if (timeProfiling) printTimeProfiling(timerStart, "Removing closest match from list and drawing it separately");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
 
-        timerStart = getCurrentMicros();
+
         // drawing matches
+        timeProfilerAux = getCurrentMicros();
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
-        if (timeProfiling) printTimeProfiling(timerStart, "Drawing matches onto screen");
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
+
 
         // TODO: add a property on each of the pngs to tell the matching function used for each of them as well as wether it should use the
         // divided screenshot or not, additionally a thread counter for each frame that will be displayed as debug info on the bot screen
 
 
-        // keep track of when the loop ends, to calculate how long the loop took and fps
+        // keeping track of when the loop ends, to calculate how long the loop took and fps
         long long frameDuration = computeTimePassed(frameStart, getCurrentMillis());
         string frameRate;
         string averageFrameRate;
         computeFrameRate(frameDuration, totalTime, totalFrames, frameRate, averageFrameRate);
         
+
+        // drawing debug information
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
 
+        for (int i = 0; i < timeProfilerSteps.size(); i++)
+        {
+            stringstream str;
+            str << fixed << setprecision(2);
+            timeProfilerAverageTimes[i] = timeProfilerTotalTimes[i] / totalFrames;
 
-        // show the frame at the end
+            if (timeProfilerAverageTimes[i] > 999)
+            {
+                str << timeProfilerAverageTimes[i] / 1000 << " millis - " << timeProfilerSteps[i];
+            }
+            else
+            {
+                str << timeProfilerAverageTimes[i] << " micros - " << timeProfilerSteps[i];
+            }
+
+            cv::putText(screenshot, str.str(), cv::Point(10, 120 + i * 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+        }
+
+        // showing the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
-
-        if (timeProfiling) break;
     }
 
     cv::destroyAllWindows();

@@ -221,7 +221,7 @@ void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, st
     frameRateStream << fixed << setprecision(2);
     averageFrameRateStream << fixed << setprecision(2);
     frameRateStream << loopDuration << " ms | " << currentFPS << " FPS";
-    averageFrameRateStream << averageMillis << " ms | " << averageFPS << " FPS | avg";
+    averageFrameRateStream << averageMillis << " ms | " << averageFPS << " FPS (avg)";
 
     currentFPSString = frameRateStream.str();
     averageFPSString = averageFrameRateStream.str();
