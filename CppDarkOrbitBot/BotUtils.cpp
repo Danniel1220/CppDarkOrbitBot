@@ -1,4 +1,4 @@
-#include "BotUtils.h"
+﻿#include "BotUtils.h"
 #include "Constants.h"
 
 #include <opencv2/opencv.hpp>
@@ -155,6 +155,50 @@ long long getCurrentMicros()
     std:chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
 
     return duration.count();
+}
+
+string millisToTimestamp(long long millis) 
+{
+    time_t seconds = millis / 1000;
+
+    // converting to `std::tm` structure (local time)
+    tm timeinfo;
+    localtime_s(&timeinfo, &seconds);
+
+    // formating the timestamp
+    ostringstream oss;
+    oss << put_time(&timeinfo, "%H:%M:%S");
+
+    return oss.str();
+}
+
+void printWithTimestamp(string message)
+{
+    string currentTimestamp = millisToTimestamp(getCurrentMillis());
+    cout << "[" << currentTimestamp << "] " << message << "\n";
+}
+
+void printTimeProfiling(long long startMicros, string message)
+{
+    long long currentMicros = getCurrentMicros();
+    long long microsPassed = computeTimePassed(startMicros, currentMicros);
+
+    // this means the time passed is more than a millisecond so we print the milliseconds
+    if (microsPassed > 999)
+    {
+        long long millisPassed = microsPassed / 1000;
+        stringstream str;
+        str << to_string(millisPassed) << " ms - " << message;
+        printWithTimestamp(str.str());
+    }
+    // else print as microseconds
+    else
+    {
+        // 230 is ascii for μ
+        stringstream str;
+        str << to_string(microsPassed) << " " << char(230) << "s - " << message;
+        printWithTimestamp(str.str());
+    }
 }
 
 long long computeTimePassed(long long start, long long finish)
