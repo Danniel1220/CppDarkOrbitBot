@@ -246,17 +246,16 @@ int main()
         for (int i = 0; i < timeProfilerSteps.size(); i++)
         {
             stringstream str;
-            str << fixed << setprecision(2);
-            timeProfilerAverageTimes[i] = timeProfilerTotalTimes[i] / totalFrames;
+            str << fixed << setprecision(4);
+            timeProfilerAverageTimes[i] = timeProfilerTotalTimes[i] / totalFrames / 1000;
 
-            if (timeProfilerAverageTimes[i] > 999)
-            {
-                str << timeProfilerAverageTimes[i] / 1000 << " millis - " << timeProfilerSteps[i];
-            }
-            else
-            {
-                str << timeProfilerAverageTimes[i] << " micros - " << timeProfilerSteps[i];
-            }
+            str << timeProfilerAverageTimes[i];
+
+            // spacing based on how many digits the avg time has
+            if (int(timeProfilerAverageTimes[i]) % 10 > 0) str << " ";
+            else str << "  ";
+
+            str << "ms - " << timeProfilerSteps[i];
 
             cv::putText(screenshot, str.str(), cv::Point(10, 120 + i * 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
         }
