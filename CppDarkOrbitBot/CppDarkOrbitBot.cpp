@@ -206,13 +206,6 @@ int main()
         string frameRate;
         string averageFrameRate;
         computeFrameRate(frameDuration, totalTime, totalFrames, frameRate, averageFrameRate);
-
-        if (timeProfiling)
-        {
-            cout << "\n";
-            printTimeProfiling(frameStart, "Entire frame");
-            cout << "\n";
-        }
         
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
@@ -221,6 +214,8 @@ int main()
         // show the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
+
+        if (timeProfiling) break;
     }
 
     cv::destroyAllWindows();

@@ -230,83 +230,56 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
     return imageGrid;
 }
 
-Mat screenshotWindow(HWND hwnd)
-{
-    HDC hscreenDC, hwindowCompatibleDC;
-    int height, width, srcheight, srcwidth;
+Mat screenshotWindow(HWND hwnd) {
+    HDC hwindowDC, hwindowCompatibleDC;
+    int width, height;
     HBITMAP hbwindow;
     cv::Mat src;
     BITMAPINFOHEADER bi;
 
-    // Capture the entire screen using screen device context
-    hscreenDC = GetDC(0); // Get the screen device context (0 means the entire screen)
-    hwindowCompatibleDC = CreateCompatibleDC(hscreenDC);
-    SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
+    RECT windowRect;
+    GetWindowRect(hwnd, &windowRect);
+    width = windowRect.right - windowRect.left;
+    height = windowRect.bottom - windowRect.top;
 
-    // Get screen dimensions
-    srcheight = GetSystemMetrics(SM_CYSCREEN);
-    srcwidth = GetSystemMetrics(SM_CXSCREEN);
-    height = srcheight;
-    width = srcwidth;
+    hwindowDC = GetDC(hwnd);  // Device context for the target window
+    hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
 
-    // Create a bitmap compatible with the screen
-    hbwindow = CreateCompatibleBitmap(hscreenDC, width, height);  // Create a bitmap for the full screen
-    bi.biSize = sizeof(BITMAPINFOHEADER);
-    bi.biWidth = width;
-    bi.biHeight = -height;  // Negative height for correct orientation
-    bi.biPlanes = 1;
-    bi.biBitCount = 32;  // RGBA format
-    bi.biCompression = BI_RGB;
-    bi.biSizeImage = 0;
-    bi.biXPelsPerMeter = 1;
-    bi.biYPelsPerMeter = 2;
-    bi.biClrUsed = 3;
-    bi.biClrImportant = 4;
-
-    // Select the newly created compatible bitmap into the DC
+    hbwindow = CreateCompatibleBitmap(hwindowDC, width, height);
     SelectObject(hwindowCompatibleDC, hbwindow);
 
-    // Capture the entire screen into the bitmap
-    if (!StretchBlt(hwindowCompatibleDC, 0, 0, width, height, hscreenDC, 0, 0, srcwidth, srcheight, SRCCOPY)) {
-        cerr << "Failed to capture the full screen!" << endl;
-        return cv::Mat();  // Return empty matrix on failure
+    // Use PrintWindow API for capturing the specific window
+    if (!PrintWindow(hwnd, hwindowCompatibleDC, PW_RENDERFULLCONTENT)) {
+        cerr << "Failed to capture the window using PrintWindow!" << endl;
+        return cv::Mat();
     }
 
-    // Create an empty matrix to store the captured image (RGBA)
-    src.create(height, width, CV_8UC4);  // RGBA format
+    // Prepare bitmap info header for 24-bit RGB format
+    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biWidth = width;
+    bi.biHeight = -height;  // Negative for correct orientation
+    bi.biPlanes = 1;
+    bi.biBitCount = 24;  // RGB format (no alpha)
+    bi.biCompression = BI_RGB;
+    bi.biSizeImage = 0;
+    bi.biXPelsPerMeter = 0;
+    bi.biYPelsPerMeter = 0;
+    bi.biClrUsed = 0;
+    bi.biClrImportant = 0;
+
+    // Allocate OpenCV matrix for 24-bit image
+    src.create(height, width, CV_8UC3);
     if (GetDIBits(hwindowCompatibleDC, hbwindow, 0, height, src.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS) == 0) {
         cerr << "Failed to retrieve bitmap data!" << endl;
-        return cv::Mat();  // Return empty matrix on failure
+        return cv::Mat();
     }
 
     // Release resources
     DeleteObject(hbwindow);
     DeleteDC(hwindowCompatibleDC);
-    ReleaseDC(0, hscreenDC);
+    ReleaseDC(hwnd, hwindowDC);
 
-    // Get the window's position and size
-    RECT windowRect;
-    GetWindowRect(hwnd, &windowRect);  // Get the full window rectangle (including title bar)
-
-    // Calculate the width and height of the client area
-    int windowX = windowRect.left;   // Left position of the window
-    int windowY = windowRect.top;    // Top position of the window
-    int windowWidth = windowRect.right - windowRect.left;  // Window width
-    int windowHeight = windowRect.bottom - windowRect.top; // Window height
-
-    // Ensure the crop region is within bounds of the captured image
-    if (windowX < 0) windowX = 0;
-    if (windowY < 0) windowY = 0;
-    if (windowX + windowWidth > src.cols) windowWidth = src.cols - windowX;
-    if (windowY + windowHeight > src.rows) windowHeight = src.rows - windowY;
-
-    // Now crop the screen capture to the window's size and position
-    cv::Rect cropRegion(windowX, windowY, windowWidth, windowHeight);
-
-    // Perform the crop operation
-    cv::Mat windowCapture = src(cropRegion);  // Crop the relevant portion
-
-    return windowCapture;
+    return src;  // Return the captured image
 }
 
 double calculateIoU(const cv::Rect& a, const cv::Rect& b) {
