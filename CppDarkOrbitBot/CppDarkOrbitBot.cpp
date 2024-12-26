@@ -123,37 +123,39 @@ int main()
     cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
     setConsoleStyle(DEFAULT);
 
+    bool timeProfiling = false;
+
     while (true)
     {
         // keep track of when the loop starts
-        long long frameStart = getCurrentMicros();
+        long long frameStart = getCurrentMillis();
         long long timerStart;
 
         timerStart = getCurrentMicros();
         // clearing previous frame's matches
         for (vector<Rect> &v : matchedRectangles) v.clear();
         for (vector<double> &v : matchedConfidences) v.clear();
-        printTimeProfiling(timerStart, "Clearing previous frame matches");
+        if (timeProfiling) printTimeProfiling(timerStart, "Clearing previous frame matches");
 
         timerStart = getCurrentMicros();
         Mat screenshot = screenshotWindow(darkOrbitHandle);
-        printTimeProfiling(timerStart, "Taking screenshot");
+        if (timeProfiling) printTimeProfiling(timerStart, "Taking screenshot");
 
         timerStart = getCurrentMicros();
         vector<vector<Mat>> dividedScreenshot = divideImage(screenshot, screenshotGridColumns, screenshotGridRows, screenshotOffset);
-        printTimeProfiling(timerStart, "Dividing screenshots");
+        if (timeProfiling) printTimeProfiling(timerStart, "Dividing screenshots");
 
         timerStart = getCurrentMicros();
         matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
             matchedConfidences, matchedRectangles);
-        printTimeProfiling(timerStart, "Template matching");
+        if (timeProfiling) printTimeProfiling(timerStart, "Template matching");
 
         timerStart = getCurrentMicros();
         Rect closestResourceRect;
         double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-        printTimeProfiling(timerStart, "Declaring closest resource vars");
+        if (timeProfiling) printTimeProfiling(timerStart, "Declaring closest resource vars");
 
 
         timerStart = getCurrentMicros();
@@ -170,7 +172,7 @@ int main()
                 closestResourceIndex = i;
             }
         }
-        printTimeProfiling(timerStart, "Closest resource loop");
+        if (timeProfiling) printTimeProfiling(timerStart, "Closest resource loop");
         timerStart = getCurrentMicros();
         if (closestResourceIndex != -1)
         {
@@ -187,27 +189,30 @@ int main()
                 Point(screenshot.cols / 2, screenshot.rows / 2), 
                 Scalar(255, 255, 255), 1, LINE_4, 0);
         }
-        printTimeProfiling(timerStart, "Removing closest match from list and drawing it separately");
+        if (timeProfiling) printTimeProfiling(timerStart, "Removing closest match from list and drawing it separately");
 
         timerStart = getCurrentMicros();
         // drawing matches
         for (int i = 0; i < templateNames.size(); i++) 
             drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
-        printTimeProfiling(timerStart, "Drawing matches onto screen");
+        if (timeProfiling) printTimeProfiling(timerStart, "Drawing matches onto screen");
 
         // TODO: add a property on each of the pngs to tell the matching function used for each of them as well as wether it should use the
         // divided screenshot or not, additionally a thread counter for each frame that will be displayed as debug info on the bot screen
 
 
         // keep track of when the loop ends, to calculate how long the loop took and fps
-        long long frameDuration = computeTimePassed(frameStart, getCurrentMicros());
+        long long frameDuration = computeTimePassed(frameStart, getCurrentMillis());
         string frameRate;
         string averageFrameRate;
         computeFrameRate(frameDuration, totalTime, totalFrames, frameRate, averageFrameRate);
 
-        cout << endl;
-        printTimeProfiling(frameStart, "Entire frame");
-
+        if (timeProfiling)
+        {
+            cout << "\n";
+            printTimeProfiling(frameStart, "Entire frame");
+            cout << "\n";
+        }
         
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
@@ -216,8 +221,6 @@ int main()
         // show the frame at the end
         cv::imshow("CppDarkOrbitBotView", screenshot);
         int key = cv::waitKey(10);
-
-        break;
     }
 
     cv::destroyAllWindows();
