@@ -9,6 +9,30 @@
 using namespace std;
 using namespace cv;
 
+class ScreenshotManager {
+public:
+    explicit ScreenshotManager(HWND hwnd);
+
+    ~ScreenshotManager();
+
+    cv::Mat capture();
+
+private:
+    HWND hwnd_;
+
+    int width_, height_;
+
+    HDC hwindowDC_;
+    HDC hwindowCompatibleDC_;
+    HBITMAP hbwindow_;
+
+    BITMAPINFOHEADER bi_;
+
+    void initialize();
+
+    void cleanup();
+};
+
 void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, Mat &screenshot, string templateName);
 void drawSingleTargetOnScreenshot(Mat &screenshot, Rect rectangle, double confidence, string name, Scalar color);
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,

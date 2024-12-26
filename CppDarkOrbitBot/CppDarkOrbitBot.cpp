@@ -123,6 +123,8 @@ int main()
     cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
     setConsoleStyle(DEFAULT);
 
+    ScreenshotManager screenshotManager(darkOrbitHandle);
+
     bool timeProfiling = false;
 
     while (true)
@@ -138,7 +140,7 @@ int main()
         if (timeProfiling) printTimeProfiling(timerStart, "Clearing previous frame matches");
 
         timerStart = getCurrentMicros();
-        Mat screenshot = screenshotWindow(darkOrbitHandle);
+        Mat screenshot = screenshotManager.capture();
         if (timeProfiling) printTimeProfiling(timerStart, "Taking screenshot");
 
         timerStart = getCurrentMicros();

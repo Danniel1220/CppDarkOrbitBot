@@ -10,6 +10,68 @@
 using namespace std;
 using namespace cv;
 
+ScreenshotManager::ScreenshotManager(HWND hwnd) : hwnd_(hwnd), width_(0), height_(0), hwindowDC_(nullptr), hwindowCompatibleDC_(nullptr), hbwindow_(nullptr) 
+{
+    initialize();
+}
+
+ScreenshotManager::~ScreenshotManager() 
+{
+    cleanup();
+}
+
+void ScreenshotManager::initialize() 
+{
+    RECT windowRect;
+    GetWindowRect(hwnd_, &windowRect);
+    width_ = windowRect.right - windowRect.left;
+    height_ = windowRect.bottom - windowRect.top;
+
+    hwindowDC_ = GetDC(hwnd_);
+    hwindowCompatibleDC_ = CreateCompatibleDC(hwindowDC_);
+    hbwindow_ = CreateCompatibleBitmap(hwindowDC_, width_, height_);
+    SelectObject(hwindowCompatibleDC_, hbwindow_);
+
+    // Initialize BITMAPINFOHEADER
+    memset(&bi_, 0, sizeof(BITMAPINFOHEADER));
+    bi_.biSize = sizeof(BITMAPINFOHEADER);
+    bi_.biWidth = width_;
+    bi_.biHeight = -height_;  // Negative for correct orientation
+    bi_.biPlanes = 1;
+    bi_.biBitCount = 24;  // RGB format
+    bi_.biCompression = BI_RGB;
+}
+
+void ScreenshotManager::cleanup() 
+{
+    if (hbwindow_) DeleteObject(hbwindow_);
+    if (hwindowCompatibleDC_) DeleteDC(hwindowCompatibleDC_);
+    if (hwindowDC_) ReleaseDC(hwnd_, hwindowDC_);
+}
+
+Mat ScreenshotManager::capture() 
+{
+    if (!hwindowDC_ || !hwindowCompatibleDC_ || !hbwindow_) {
+        std::cerr << "Resources not initialized properly!" << std::endl;
+        return cv::Mat();
+    }
+
+    // Capture the window using PrintWindow
+    if (!PrintWindow(hwnd_, hwindowCompatibleDC_, PW_RENDERFULLCONTENT)) {
+        std::cerr << "Failed to capture the window!" << std::endl;
+        return cv::Mat();
+    }
+
+    // Retrieve bitmap data into OpenCV matrix
+    cv::Mat image(height_, width_, CV_8UC3);
+    if (GetDIBits(hwindowCompatibleDC_, hbwindow_, 0, height_, image.data, (BITMAPINFO*)&bi_, DIB_RGB_COLORS) == 0) {
+        std::cerr << "Failed to retrieve bitmap data!" << std::endl;
+        return cv::Mat();
+    }
+
+    return image;
+}
+
 void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, Mat &screenshot, string templateName)
 {
     Scalar color;
