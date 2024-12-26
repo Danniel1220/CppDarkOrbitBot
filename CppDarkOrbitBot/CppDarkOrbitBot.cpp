@@ -257,7 +257,7 @@ int main()
 
             str << "ms - " << timeProfilerSteps[i];
 
-            cv::putText(screenshot, str.str(), cv::Point(10, 120 + i * 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+            cv::putText(screenshot, str.str(), cv::Point(10, 900 + i * 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
         }
 
         // showing the frame at the end
