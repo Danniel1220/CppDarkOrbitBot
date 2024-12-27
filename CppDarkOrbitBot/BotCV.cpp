@@ -147,18 +147,18 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
     // so we find matches below threshold
     if (matchMode == TM_SQDIFF || matchMode == TM_SQDIFF_NORMED)
     {
-        for (int y = 0; y < result.rows; y++) 
+        double minScore, maxScore;
+        Point minPoint, maxPoint;
+
+        minMaxLoc(result, &minScore, &maxScore, &minPoint, &maxPoint);
+
+        if (minScore < confidenceThreshold)
         {
-            for (int x = 0; x < result.cols; x++) 
-            {
-                double score = result.at<float>(y, x);
-                if (score <= confidenceThreshold && !isinf(score)) 
-                {
-                    matchRectangles.emplace_back(Point(x, y), templateGrayscale.size());
-                    matchScores.emplace_back(score);
-                }
-            }
+            matchRectangles.emplace_back(minPoint, templateGrayscale.size());
+            matchScores.emplace_back(minScore);
+            deduplicatedMatchIndexes.emplace_back(0);
         }
+
     }
     // else find matches above threshold
     else
@@ -175,24 +175,21 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
                 }
             }
         }
-    }
-    
 
-    // applying Non-Maximum Suppression to remove duplicate matches
-    double nmsThreshold = 0.3;  // overlap threshold for NMS
-    applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
+        // applying Non-Maximum Suppression to remove duplicate matches
+        double nmsThreshold = 0.3;  // overlap threshold for NMS
+        applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
+    }
 }
 
 void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates,
     ThreadPool &threadPool, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
-    // rows - columns - templates - matches
-
     // templates - rows - columns - matches
     vector<vector<vector<vector<double>>>> matchedConfidences(templates.size(), vector<vector<vector<double>>>(screenshotGrid.size(), vector<vector<double>>(screenshotGrid[0].size())));
     vector<vector<vector<vector<Rect>>>> matchedRectangles(templates.size(), vector<vector<vector<Rect>>>(screenshotGrid.size(), vector<vector<Rect>>(screenshotGrid[0].size())));
     vector<vector<vector<vector<int>>>> firstNMSPassDeduplicatedIndexes(templates.size(), vector<vector<vector<int>>>(screenshotGrid.size(), vector<vector<int>>(screenshotGrid[0].size())));
-
+    
     // for each template
     for (int i = 0; i < templates.size(); i++)
     {
@@ -216,6 +213,19 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                         ref(firstNMSPassDeduplicatedIndexes[i][gridRow][gridColumn])));
                 }
             }
+        }
+        else
+        {
+            threadPool.enqueue(std::bind(matchSingleTemplate, 
+                screenshotGrid[0][3],
+                templates[i].grayscale, 
+                templates[i].alpha, 
+                templates[i].name, 
+                templates[i].matchingMode,
+                templates[i].confidenceThreshold,
+                ref(matchedConfidences[i][0][3]),
+                ref(matchedRectangles[i][0][3]),
+                ref(firstNMSPassDeduplicatedIndexes[i][0][3])));
         }
     }
     threadPool.waitForCompletion();

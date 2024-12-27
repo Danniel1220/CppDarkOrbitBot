@@ -14,6 +14,7 @@ struct Template {
     cv::TemplateMatchModes matchingMode;
     double confidenceThreshold;
     bool useDividedScreenshot;
+    bool multipleMatches;
     Mat grayscale;
     Mat alpha;
 };
