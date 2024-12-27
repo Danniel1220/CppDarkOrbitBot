@@ -82,8 +82,8 @@ int main()
 
     vector<Template> templates = {
         //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, 0.75, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_SQDIFF_NORMED, 0.1, true, Mat(), Mat()},
     };
 
     int screenshotGridColumns = 5;
@@ -91,8 +91,6 @@ int main()
     int screenshotOffset = 50;
 
     int threadCount = 15;
-
-    double confidenceThreshold = 0.75;
 
     float totalTime = 0.0f;
     float totalFrames = 0.0f;
@@ -165,7 +163,7 @@ int main()
 
         // template matching
         timeProfilerAux = getCurrentMicros();
-        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, confidenceThreshold, threadPool, matchedConfidences, matchedRectangles);
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, threadPool, matchedConfidences, matchedRectangles);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 

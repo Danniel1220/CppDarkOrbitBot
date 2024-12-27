@@ -143,26 +143,47 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
 
     cv::matchTemplate(grayscaleScreenshot, templateGrayscale, result, matchMode, templateAlpha);
 
-    // finding matches above threshold
-    for (int y = 0; y < result.rows; y++) 
+    // if were using one of these 2 methods, lower scores indicate better matches because they compute the squared difference
+    // so we find matches below threshold
+    if (matchMode == TM_SQDIFF || matchMode == TM_SQDIFF_NORMED)
     {
-        for (int x = 0; x < result.cols; x++) 
+        for (int y = 0; y < result.rows; y++) 
         {
-            double score = result.at<float>(y, x);
-            if (score >= confidenceThreshold && !isinf(score)) 
+            for (int x = 0; x < result.cols; x++) 
             {
-                matchRectangles.emplace_back(Point(x, y), templateGrayscale.size());
-                matchScores.emplace_back(score);
+                double score = result.at<float>(y, x);
+                if (score <= confidenceThreshold && !isinf(score)) 
+                {
+                    matchRectangles.emplace_back(Point(x, y), templateGrayscale.size());
+                    matchScores.emplace_back(score);
+                }
             }
         }
     }
+    // else find matches above threshold
+    else
+    {
+        for (int y = 0; y < result.rows; y++) 
+        {
+            for (int x = 0; x < result.cols; x++) 
+            {
+                double score = result.at<float>(y, x);
+                if (score >= confidenceThreshold && !isinf(score)) 
+                {
+                    matchRectangles.emplace_back(Point(x, y), templateGrayscale.size());
+                    matchScores.emplace_back(score);
+                }
+            }
+        }
+    }
+    
 
     // applying Non-Maximum Suppression to remove duplicate matches
     double nmsThreshold = 0.3;  // overlap threshold for NMS
     applyNMS(matchRectangles, matchScores, nmsThreshold, deduplicatedMatchIndexes);
 }
 
-void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates, double confidenceThreshold, 
+void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates,
     ThreadPool &threadPool, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
     // rows - columns - templates - matches
@@ -184,8 +205,8 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                     templates[i].grayscale, 
                     templates[i].alpha, 
                     templates[i].name, 
-                    TM_CCOEFF_NORMED, 
-                    confidenceThreshold,
+                    templates[i].matchingMode,
+                    templates[i].confidenceThreshold,
                     ref(matchedConfidences[gridRow][gridColumn][i]),
                     ref(matchedRectangles[gridRow][gridColumn][i]),
                     ref(firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i])));

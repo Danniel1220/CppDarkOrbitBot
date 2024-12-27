@@ -37,7 +37,7 @@ void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, M
 void drawSingleTargetOnScreenshot(Mat &screenshot, Rect rectangle, double confidence, string name, Scalar color);
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
     vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes);
-void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates, double confidenceThreshold, 
+void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates, 
     ThreadPool &threadPool, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles);
 vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int overlapAmount);
 Mat screenshotWindow(HWND hwnd);

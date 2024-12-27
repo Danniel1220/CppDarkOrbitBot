@@ -12,6 +12,7 @@ using namespace cv;
 struct Template {
     string name;
     cv::TemplateMatchModes matchingMode;
+    double confidenceThreshold;
     bool useDividedScreenshot;
     Mat grayscale;
     Mat alpha;
