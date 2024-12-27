@@ -29,7 +29,7 @@ enum TemplateIdentifier {
     CARGO_ICON = 1
 };
 
-struct TemplateMatch 
+struct TemplateMatch
 {
     Rect rect;
     double confidence;
@@ -80,14 +80,11 @@ int main()
     }
     setConsoleStyle(DEFAULT);
 
-    vector<string> pngPaths = {
-        //"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png",
-        "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png",
-        "C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png",
+    vector<Template> templates = {
+        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
     };
-    vector<Mat> templateGrayscales;
-    vector<Mat> templateAlphas;
-    vector<string> templateNames;
 
     int screenshotGridColumns = 5;
     int screenshotGridRows = 3;
@@ -102,14 +99,12 @@ int main()
     float averageMillis = 0.0f;
     float averageFPS = 0.0f;
 
-    
-
-    loadImages(pngPaths, templateGrayscales, templateAlphas);
-    extractPngNames(pngPaths, templateNames);
+    loadImages(templates);
+    extractPngNames(templates);
 
     // templates - matches
-    vector<vector<Rect>> matchedRectangles(templateGrayscales.size());
-    vector<vector<double>> matchedConfidences(templateGrayscales.size());
+    vector<vector<Rect>> matchedRectangles(templates.size());
+    vector<vector<double>> matchedConfidences(templates.size());
 
     setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
     cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
@@ -170,8 +165,7 @@ int main()
 
         // template matching
         timeProfilerAux = getCurrentMicros();
-        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templateGrayscales, templateAlphas, templateNames, confidenceThreshold, threadPool,
-            matchedConfidences, matchedRectangles);
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, confidenceThreshold, threadPool, matchedConfidences, matchedRectangles);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
@@ -208,7 +202,7 @@ int main()
             matchedConfidences[PROMETIUM].erase(matchedConfidences[PROMETIUM].begin() + closestResourceIndex);
 
             // drawing closest resource separately to use a different color
-            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templateNames[PROMETIUM], Scalar(255, 255, 255));
+            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templates[PROMETIUM].name, Scalar(255, 255, 255));
 
             // draw a line between the ship and the closest resource found
             line(screenshot, 
@@ -222,8 +216,8 @@ int main()
 
         // drawing matches
         timeProfilerAux = getCurrentMicros();
-        for (int i = 0; i < templateNames.size(); i++) 
-            drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templateNames[i]);
+        for (int i = 0; i < templates.size(); i++) 
+            drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templates[i].name);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 

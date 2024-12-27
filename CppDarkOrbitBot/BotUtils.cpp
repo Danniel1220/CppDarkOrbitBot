@@ -75,6 +75,63 @@ vector<Mat> loadImages(vector<string> paths, vector<Mat>& grayscales, vector<Mat
     return png_images;
 }
 
+void loadImages(vector<Template> &templates)
+{
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+
+    cout << "Loading images..." << endl;
+
+    vector<Mat> png_images;
+    bool loadingFailed = false;
+
+    for (int i = 0; i < templates.size(); i++)
+    {
+        Mat png = cv::imread(templates[i].name, IMREAD_UNCHANGED);
+
+        if (png.empty())
+        {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+            cout << "Error: Could not load image: " << templates[i].name << endl;
+            loadingFailed = true;
+            setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+        }
+        else
+        {
+            Mat targetBase;
+            Mat targetGrayBase;
+            Mat targetAlpha;
+            vector<Mat> channels;
+
+            // split the image into the 4 channels (RGB + A)
+            cv::split(png, channels);
+
+            cv::merge(vector<Mat>{channels[0], channels[1], channels[2]}, targetBase);  // merge the first 3 channels (RGB) into one mat
+            cv::cvtColor(targetBase, targetGrayBase, cv::COLOR_BGR2GRAY);               // convert the colored Mat to grayscale
+
+            targetAlpha = channels[3]; // grab the last channel (alpha)
+
+
+            templates[i].grayscale = targetGrayBase;
+            templates[i].alpha = targetAlpha;
+
+            cout << "Successfully loaded image: " << templates[i].name << endl;
+        }
+    }
+
+    if (loadingFailed)
+    {
+        setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+        cout << "One or more errors occured while loading images..." << endl;
+    }
+    else
+    {
+        setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
+        cout << "Successfully loaded all images!" << endl;
+    }
+
+    setConsoleStyle(DEFAULT);
+}
+
 void testConsoleColors() {
     for (int k = 1; k < 255; k++)
     {
@@ -123,6 +180,46 @@ void extractPngNames(vector<string> pngPaths, vector<string>& targetNames)
         else {
             setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
             cout << "No regex match found for path: \"" << pngPath << "\"" << endl;
+            extractionFailed = true;
+        }
+    }
+
+    if (extractionFailed)
+    {
+        setConsoleStyle(RED_TEXT_BLACK_BACKGROUND); // red text
+        cout << "Regex extraction of the png file names failed..." << endl;
+    }
+    else
+    {
+        setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
+        cout << "Successfully extracted all png file names!" << endl;
+    }
+
+    setConsoleStyle(DEFAULT);
+}
+
+void extractPngNames(vector<Template> &templates)
+{
+    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+    cout << "Extracting png file names..." << endl;
+
+    regex pngPathRegex(R"([^\\/:*?"<>|]+\.png$)");
+    smatch regexMatch;
+
+    bool extractionFailed = false;
+
+    for (int i = 0; i < templates.size(); i++)
+    {
+        if (regex_search(templates[i].name, regexMatch, pngPathRegex)) 
+        {
+            templates[i].name = regexMatch[0];
+
+            setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
+            cout << "Extracted file name: " << regexMatch[0] << endl;
+        }
+        else {
+            setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
+            cout << "No regex match found for path: \"" << templates[i].name << "\"" << endl;
             extractionFailed = true;
         }
     }
