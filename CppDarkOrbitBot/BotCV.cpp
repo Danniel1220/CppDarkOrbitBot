@@ -187,29 +187,34 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     ThreadPool &threadPool, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
 {
     // rows - columns - templates - matches
-    vector<vector<vector<vector<double>>>> matchedConfidences(screenshotGrid.size(), vector<vector<vector<double>>>(screenshotGrid[0].size(), vector<vector<double>>(templates.size())));
-    vector<vector<vector<vector<Rect>>>> matchedRectangles(screenshotGrid.size(), vector<vector<vector<Rect>>>(screenshotGrid[0].size(), vector<vector<Rect>>(templates.size())));
-    vector<vector<vector<vector<int>>>> firstNMSPassDeduplicatedIndexes(screenshotGrid.size(), vector<vector<vector<int>>>(screenshotGrid[0].size(), vector<vector<int>>(templates.size())));
 
-    // for each row of the grid
-    for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
+    // templates - rows - columns - matches
+    vector<vector<vector<vector<double>>>> matchedConfidences(templates.size(), vector<vector<vector<double>>>(screenshotGrid.size(), vector<vector<double>>(screenshotGrid[0].size())));
+    vector<vector<vector<vector<Rect>>>> matchedRectangles(templates.size(), vector<vector<vector<Rect>>>(screenshotGrid.size(), vector<vector<Rect>>(screenshotGrid[0].size())));
+    vector<vector<vector<vector<int>>>> firstNMSPassDeduplicatedIndexes(templates.size(), vector<vector<vector<int>>>(screenshotGrid.size(), vector<vector<int>>(screenshotGrid[0].size())));
+
+    // for each template
+    for (int i = 0; i < templates.size(); i++)
     {
-        // for each grid cell in the row
-        for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
+        if (templates[i].useDividedScreenshot == true)
         {
-            // for each template needed to be matched for each grid cell
-            for (int i = 0; i < templates.size(); i++)
+            // for each row of the grid
+            for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
             {
-                threadPool.enqueue(std::bind(matchSingleTemplate, 
-                    screenshotGrid[gridRow][gridColumn], 
-                    templates[i].grayscale, 
-                    templates[i].alpha, 
-                    templates[i].name, 
-                    templates[i].matchingMode,
-                    templates[i].confidenceThreshold,
-                    ref(matchedConfidences[gridRow][gridColumn][i]),
-                    ref(matchedRectangles[gridRow][gridColumn][i]),
-                    ref(firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i])));
+                // for each column of the grid
+                for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
+                {
+                    threadPool.enqueue(std::bind(matchSingleTemplate, 
+                        screenshotGrid[gridRow][gridColumn], 
+                        templates[i].grayscale, 
+                        templates[i].alpha, 
+                        templates[i].name, 
+                        templates[i].matchingMode,
+                        templates[i].confidenceThreshold,
+                        ref(matchedConfidences[i][gridRow][gridColumn]),
+                        ref(matchedRectangles[i][gridRow][gridColumn]),
+                        ref(firstNMSPassDeduplicatedIndexes[i][gridRow][gridColumn])));
+                }
             }
         }
     }
@@ -226,17 +231,17 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     // going through all the matches from each thread and aggregating the deduplicated ones on the first pass of NMS into one structure
     // also adjusting the location of the matched points and rects to match real the coordinates on the full screenshot
  
-    // for each row of the grid
-    for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
+    // for each template
+    for (int i = 0; i < templates.size(); i++)
     {
-        // for each grid cell in the row
-        for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
+        // for each row of the grid
+        for (int gridRow = 0; gridRow < screenshotGrid.size(); gridRow++)
         {
-            // for each template matched for each grid cell
-            for (int i = 0; i < templates.size(); i++)
-            {        
+            // for each grid cell in the row
+            for (int gridColumn = 0; gridColumn < screenshotGrid[gridRow].size(); gridColumn++)
+            {
                 // only for the deduplicated matches
-                for (int j = 0; j < firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i].size(); j++)
+                for (int j = 0; j < firstNMSPassDeduplicatedIndexes[i][gridRow][gridColumn].size(); j++)
                 {
                     int overlapOffsetX = gridColumn == 0 ? 0 : -screenshotOffset;
                     int overlapOffsetY = gridRow == 0 ? 0 : -screenshotOffset;
@@ -244,16 +249,16 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                     int xOffset = gridColumn * gridSizeX + overlapOffsetX;
                     int yOffset = gridRow * gridSizeY + overlapOffsetY;
 
-                    int deduplicatedMatchIndex = firstNMSPassDeduplicatedIndexes[gridRow][gridColumn][i][j];
+                    int deduplicatedMatchIndex = firstNMSPassDeduplicatedIndexes[i][gridRow][gridColumn][j];
 
                     Rect adjustedRect = Rect(
-                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].x + xOffset, 
-                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].y + yOffset,
-                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].width, 
-                        matchedRectangles[gridRow][gridColumn][i][deduplicatedMatchIndex].height);
+                        matchedRectangles[i][gridRow][gridColumn][deduplicatedMatchIndex].x + xOffset, 
+                        matchedRectangles[i][gridRow][gridColumn][deduplicatedMatchIndex].y + yOffset,
+                        matchedRectangles[i][gridRow][gridColumn][deduplicatedMatchIndex].width, 
+                        matchedRectangles[i][gridRow][gridColumn][deduplicatedMatchIndex].height);
 
                     firstNMSPassMatchedRectangles[i].emplace_back(adjustedRect);
-                    firstNMSPassMatchedConfidences[i].emplace_back(matchedConfidences[gridRow][gridColumn][i][deduplicatedMatchIndex]);
+                    firstNMSPassMatchedConfidences[i].emplace_back(matchedConfidences[i][gridRow][gridColumn][deduplicatedMatchIndex]);
                 }
             }
         }
