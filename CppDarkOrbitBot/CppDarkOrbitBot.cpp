@@ -26,7 +26,8 @@ HWND darkOrbitHandle;
 enum TemplateIdentifier {
     //PALLADIUM = 0,
     PROMETIUM = 0,
-    CARGO_ICON = 1
+    CARGO_ICON = 1,
+    //ENDURIUM = 3
 };
 
 struct TemplateMatch
@@ -81,12 +82,13 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<Template> templates = {
-        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, true, Mat(), Mat()},
+        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, 0.75, true, Mat(), Mat()},
         {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, 0.75, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_SQDIFF_NORMED, 0.1, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_SQDIFF_NORMED, 0.1, false, Mat(), Mat()},
+        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\endurium2.png", TM_CCOEFF_NORMED, 0.7, true, Mat(), Mat()}
     };
 
-    int screenshotGridColumns = 5;
+    int screenshotGridColumns = 4;
     int screenshotGridRows = 3;
     int screenshotOffset = 50;
 
