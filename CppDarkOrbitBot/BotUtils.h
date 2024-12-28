@@ -9,6 +9,12 @@
 using namespace std;
 using namespace cv;
 
+enum BotStatus {
+    SCANNING = 0,
+    MOVING = 1,
+    COLLECTING = 2
+};
+
 struct Template {
     string name;
     cv::TemplateMatchModes matchingMode;
@@ -17,6 +23,13 @@ struct Template {
     bool multipleMatches;
     Mat grayscale;
     Mat alpha;
+};
+
+enum TemplateIdentifier {
+    //PALLADIUM = 0,
+    PROMETIUM = 0,
+    CARGO_ICON = 1,
+    //ENDURIUM = 3
 };
 
 void setConsoleStyle(int style);
@@ -33,5 +46,7 @@ void printWithTimestamp(string message);
 void printTimeProfiling(long long startMicros, string message);
 long long computeTimePassed(long long start, long long finish);
 void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString);
+void clickAt(int x, int y);
+string botStatusEnumToString(BotStatus status);
 
 #endif

@@ -238,19 +238,17 @@ void extractPngNames(vector<Template> &templates)
     setConsoleStyle(DEFAULT);
 }
 
-long long getCurrentMillis()
+long long getCurrentMillis() 
 {
-    std::chrono::time_point now = std::chrono::high_resolution_clock::now();
-    std:chrono::milliseconds duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-
+    auto now = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
     return duration.count();
 }
 
 long long getCurrentMicros()
 {
-    std::chrono::time_point now = std::chrono::high_resolution_clock::now();
-    std:chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
-
+    auto now = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
     return duration.count();
 }
 
@@ -322,4 +320,33 @@ void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, st
 
     currentFPSString = frameRateStream.str();
     averageFPSString = averageFrameRateStream.str();
+}
+
+void clickAt(int x, int y) 
+{
+    SetCursorPos(x, y);
+    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+}
+
+string botStatusEnumToString(BotStatus status)
+{
+    try 
+    {
+        switch (status)
+        {
+        case SCANNING:
+            return "SCANNING";
+        case MOVING:
+            return "MOVING";
+        case COLLECTING:
+            return "COLLECTING";
+        default:
+            throw std::runtime_error("Failed to cast bot status to string...");
+        }
+    }
+    catch (const std::runtime_error &e) 
+    {
+
+    }
 }

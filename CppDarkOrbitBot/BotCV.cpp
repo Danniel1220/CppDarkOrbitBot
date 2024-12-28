@@ -418,3 +418,49 @@ void applyNMS(const vector<Rect> &boxes, const vector<double> &scores, double nm
         }
     }
 }
+
+bool matchTemplateWithHighestScore(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
+    double &matchScore, Rect &matchRectangle)
+{
+    Mat grayscaleScreenshot;
+    cv::cvtColor(screenshot, grayscaleScreenshot, cv::COLOR_BGR2GRAY);
+
+    int result_cols = grayscaleScreenshot.cols - templateGrayscale.cols + 1;
+    int result_rows = grayscaleScreenshot.rows - templateGrayscale.rows + 1;
+
+    Mat result;
+    result.create(result_rows, result_cols, CV_32FC1);
+
+    cv::matchTemplate(grayscaleScreenshot, templateGrayscale, result, matchMode, templateAlpha);
+
+    double minScore, maxScore;
+    Point minPoint, maxPoint;
+
+    minMaxLoc(result, &minScore, &maxScore, &minPoint, &maxPoint);
+
+    // if were using one of these 2 methods, lower scores indicate better matches because they compute the squared difference
+    // so we find matches below threshold
+    if (matchMode == TM_SQDIFF || matchMode == TM_SQDIFF_NORMED)
+    {
+        if (minScore < confidenceThreshold)
+        {
+            matchRectangle = Rect(minPoint, templateGrayscale.size());
+            matchScore = minScore;
+
+            return true;
+        }
+    }
+    // else find matches above threshold
+    else
+    {
+        if (maxScore > confidenceThreshold)
+        {
+            matchRectangle = Rect(maxPoint, templateGrayscale.size());
+            matchScore = maxScore;
+
+            return true;
+        }
+    }
+
+    return false;
+}

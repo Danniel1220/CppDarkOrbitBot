@@ -23,13 +23,6 @@ using namespace chrono;
 
 HWND darkOrbitHandle;
 
-enum TemplateIdentifier {
-    //PALLADIUM = 0,
-    PROMETIUM = 0,
-    CARGO_ICON = 1,
-    //ENDURIUM = 3
-};
-
 struct TemplateMatch
 {
     Rect rect;
@@ -99,6 +92,10 @@ int main()
     float averageMillis = 0.0f;
     float averageFPS = 0.0f;
 
+    long long collectingTimer;
+
+    BotStatus status = BotStatus::SCANNING;
+
     loadImages(templates);
     extractPngNames(templates);
 
@@ -128,7 +125,8 @@ int main()
         "Template matching",
         "Closest resource loop",
         "Closest match drawing",
-        "Drawing matches"
+        "Drawing matches",
+        "Bot decision logic"
     };
     vector<long long> timeProfilerTotalTimes(timeProfilerSteps.size(), 0);
     vector<float> timeProfilerAverageTimes(timeProfilerSteps.size(), 0);
@@ -171,12 +169,11 @@ int main()
 
 
         // figuring out which match is closest
+        timeProfilerAux = getCurrentMicros();
         Rect closestResourceRect;
         double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-
-        timeProfilerAux = getCurrentMicros();
         for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
         {
             // this returns distance between the point and the center of the screenshot where the ship is
@@ -222,8 +219,48 @@ int main()
         profilingStep++;
 
 
-        // TODO: add a property on each of the pngs to tell the matching function used for each of them as well as wether it should use the
-        // divided screenshot or not, additionally a thread counter for each frame that will be displayed as debug info on the bot screen
+        // bot decision logic
+        timeProfilerAux = getCurrentMicros();
+        // if the bot is scanning and a closest resource has been found
+        if (status == SCANNING && closestResourceRect.width != 0)
+        {
+            clickAt(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2);
+            status = MOVING;
+            printWithTimestamp("BOT_STATUS: MOVING");
+        }
+        else if (status == MOVING) 
+        {
+            Mat screenshotROI = screenshot(Rect(930, 615, 50, 50));
+            imshow("test", screenshotROI);
+            double score = -1;
+            Rect rectangle;
+
+            if (matchTemplateWithHighestScore(
+                screenshotROI, 
+                templates[PROMETIUM].grayscale,
+                templates[PROMETIUM].alpha,
+                templates[PROMETIUM].name,
+                templates[PROMETIUM].matchingMode,
+                0.7,
+                score,
+                rectangle))
+            {
+                status = COLLECTING;
+                printWithTimestamp("BOT_STATUS: COLLECTING");
+                collectingTimer = getCurrentMillis();
+            }
+        }
+        else if (status == COLLECTING)
+        {
+            if (computeTimePassed(collectingTimer, getCurrentMillis()) > 1000)
+            {
+                status = SCANNING;
+                printWithTimestamp("BOT_STATUS: SCANNING");
+            }
+        }
+        timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
+        profilingStep++;
+
 
 
         // keeping track of when the loop ends, to calculate how long the loop took and fps
@@ -236,6 +273,7 @@ int main()
         // drawing debug information
         cv::putText(screenshot, frameRate, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
         cv::putText(screenshot, averageFrameRate, cv::Point(10, 70), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
+        cv::putText(screenshot, "BOT_STATUS: " + botStatusEnumToString(status), cv::Point(800, 1040), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 255, 0), 2);
 
         for (int i = 0; i < timeProfilerSteps.size(); i++)
         {

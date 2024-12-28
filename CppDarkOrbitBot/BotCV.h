@@ -43,5 +43,7 @@ vector<vector<Mat>> divideImage(Mat image, int gridWidth, int gridHeight, int ov
 Mat screenshotWindow(HWND hwnd);
 double calculateIoU(const cv::Rect& a, const cv::Rect& b);
 void applyNMS(const vector<Rect>& boxes, const vector<double>& scores, double nmsThreshold, vector<int>& indices);
+bool matchTemplateWithHighestScore(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
+    double &matchScore, Rect &matchRectangle);
 
 #endif
