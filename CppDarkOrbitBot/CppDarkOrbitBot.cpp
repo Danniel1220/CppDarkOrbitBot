@@ -93,6 +93,9 @@ int main()
     float averageFPS = 0.0f;
 
     long long collectingTimer;
+    long long movingTimer;
+
+    float minimumResourceDistance = 100.0;
 
     BotStatus status = BotStatus::SCANNING;
 
@@ -178,7 +181,7 @@ int main()
         {
             // this returns distance between the point and the center of the screenshot where the ship is
             double distance = pointToScreenshotCenterDistance(matchedRectangles[PROMETIUM][i].x, matchedRectangles[PROMETIUM][i].y, screenshot.cols, screenshot.rows);
-            if (distance < closestResourceDistance)
+            if (distance < closestResourceDistance && distance > minimumResourceDistance)
             {
                 closestResourceDistance = distance;
                 closestResourceRect = matchedRectangles[PROMETIUM][i];
@@ -221,43 +224,60 @@ int main()
 
         // bot decision logic
         timeProfilerAux = getCurrentMicros();
-        // if the bot is scanning and a closest resource has been found
-        if (status == SCANNING && closestResourceRect.width != 0)
+        bool botON = true;
+        if (botON)
         {
-            clickAt(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2);
-            status = MOVING;
-            printWithTimestamp("BOT_STATUS: MOVING");
-        }
-        else if (status == MOVING) 
-        {
-            Mat screenshotROI = screenshot(Rect(930, 615, 50, 50));
-            imshow("test", screenshotROI);
-            double score = -1;
-            Rect rectangle;
+            // if the bot is scanning and a closest resource has been found
+            if (status == SCANNING && closestResourceRect.width != 0)
+            {
+                clickAt(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2);
+                status = MOVING;
+                movingTimer = getCurrentMillis();
 
-            if (matchTemplateWithHighestScore(
-                screenshotROI, 
-                templates[PROMETIUM].grayscale,
-                templates[PROMETIUM].alpha,
-                templates[PROMETIUM].name,
-                templates[PROMETIUM].matchingMode,
-                0.7,
-                score,
-                rectangle))
+                printWithTimestamp("BOT_STATUS: MOVING");
+
+            }
+            else if (status == MOVING) 
             {
-                status = COLLECTING;
-                printWithTimestamp("BOT_STATUS: COLLECTING");
-                collectingTimer = getCurrentMillis();
+                // if 4 seconds of moving havent passed yet
+                if (computeTimePassed(movingTimer, getCurrentMillis()) > 4000)
+                {
+                    status = SCANNING;
+                    printWithTimestamp("Fallback to scanning after 4s passed", RED_TEXT_BLACK_BACKGROUND);
+                }
+                // if 4 seconds have passed we are probably stuck so we go back to scanning
+                else 
+                {
+                    Mat screenshotROI = screenshot(Rect(935, 615, 50, 50));
+                    imshow("test", screenshotROI);
+                    double score;
+                    Rect rectangle;
+                    bool matchFound = matchTemplateWithHighestScore(screenshotROI,
+                        templates[PROMETIUM].grayscale, templates[PROMETIUM].alpha, templates[PROMETIUM].name, templates[PROMETIUM].matchingMode,
+                        0.6, score, rectangle);
+
+                    if (matchFound)
+                    {
+                        status = COLLECTING;
+                        printWithTimestamp("Found collecting match with score: " + to_string(score));
+                        printWithTimestamp("BOT_STATUS: COLLECTING");
+                        collectingTimer = getCurrentMillis();
+                    }
+                }
+
+                
+            }
+            else if (status == COLLECTING)
+            {
+                if (computeTimePassed(collectingTimer, getCurrentMillis()) > 1000)
+                {
+                    status = SCANNING;
+                    printWithTimestamp("Collected resource");
+                    printWithTimestamp("BOT_STATUS: SCANNING");
+                }
             }
         }
-        else if (status == COLLECTING)
-        {
-            if (computeTimePassed(collectingTimer, getCurrentMillis()) > 1000)
-            {
-                status = SCANNING;
-                printWithTimestamp("BOT_STATUS: SCANNING");
-            }
-        }
+
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
