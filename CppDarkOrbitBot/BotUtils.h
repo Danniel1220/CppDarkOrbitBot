@@ -43,6 +43,7 @@ long long getCurrentMillis();
 long long getCurrentMicros();
 string millisToTimestamp(long long millis);
 void printWithTimestamp(string message);
+void printWithTimestamp(string message, int style);
 void printTimeProfiling(long long startMicros, string message);
 long long computeTimePassed(long long start, long long finish);
 void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString);

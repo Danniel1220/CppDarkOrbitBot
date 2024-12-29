@@ -273,6 +273,15 @@ void printWithTimestamp(string message)
     cout << "[" << currentTimestamp << "] " << message << "\n";
 }
 
+void printWithTimestamp(string message, int style)
+{
+    string currentTimestamp = millisToTimestamp(getCurrentMillis());
+    cout << "[" << currentTimestamp << "] ";
+    setConsoleStyle(style);
+    cout << message << "\n";
+    setConsoleStyle(DEFAULT);
+}
+
 void printTimeProfiling(long long startMicros, string message)
 {
     long long currentMicros = getCurrentMicros();
@@ -326,7 +335,9 @@ void clickAt(int x, int y)
 {
     SetCursorPos(x, y);
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+    printWithTimestamp("Clicked at [" + to_string(x) + ", " + to_string(y) + "]");
 }
 
 string botStatusEnumToString(BotStatus status)
