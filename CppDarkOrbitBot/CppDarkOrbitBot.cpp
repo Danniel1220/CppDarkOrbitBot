@@ -75,10 +75,12 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<Template> templates = {
-        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, 0.75, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
         {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
-        //{"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\endurium2.png", TM_CCOEFF_NORMED, 0.7, true, Mat(), Mat()}
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\endurium2.png", TM_CCOEFF_NORMED, 0.7, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_icon.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_buttons.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()}
     };
 
     int screenshotGridColumns = 4;
@@ -177,15 +179,15 @@ int main()
         double closestResourceConfidence = -1;
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-        for (int i = 0; i < matchedRectangles[PROMETIUM].size(); i++)
+        for (int i = 0; i < matchedRectangles[PALLADIUM].size(); i++)
         {
             // this returns distance between the point and the center of the screenshot where the ship is
-            double distance = pointToScreenshotCenterDistance(matchedRectangles[PROMETIUM][i].x, matchedRectangles[PROMETIUM][i].y, screenshot.cols, screenshot.rows);
+            double distance = pointToScreenshotCenterDistance(matchedRectangles[PALLADIUM][i].x, matchedRectangles[PALLADIUM][i].y, screenshot.cols, screenshot.rows);
             if (distance < closestResourceDistance && distance > minimumResourceDistance)
             {
                 closestResourceDistance = distance;
-                closestResourceRect = matchedRectangles[PROMETIUM][i];
-                closestResourceConfidence = matchedConfidences[PROMETIUM][i];
+                closestResourceRect = matchedRectangles[PALLADIUM][i];
+                closestResourceConfidence = matchedConfidences[PALLADIUM][i];
                 closestResourceIndex = i;
             }
         }
@@ -198,11 +200,11 @@ int main()
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
-            matchedRectangles[PROMETIUM].erase(matchedRectangles[PROMETIUM].begin() + closestResourceIndex);
-            matchedConfidences[PROMETIUM].erase(matchedConfidences[PROMETIUM].begin() + closestResourceIndex);
+            matchedRectangles[PALLADIUM].erase(matchedRectangles[PALLADIUM].begin() + closestResourceIndex);
+            matchedConfidences[PALLADIUM].erase(matchedConfidences[PALLADIUM].begin() + closestResourceIndex);
 
             // drawing closest resource separately to use a different color
-            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templates[PROMETIUM].name, Scalar(255, 255, 255));
+            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templates[PALLADIUM].name, Scalar(255, 255, 255));
 
             // draw a line between the ship and the closest resource found
             line(screenshot, 
@@ -253,8 +255,8 @@ int main()
                     double score;
                     Rect rectangle;
                     bool matchFound = matchTemplateWithHighestScore(screenshotROI,
-                        templates[PROMETIUM].grayscale, templates[PROMETIUM].alpha, templates[PROMETIUM].name, templates[PROMETIUM].matchingMode,
-                        0.6, score, rectangle);
+                        templates[PALLADIUM].grayscale, templates[PALLADIUM].alpha, templates[PALLADIUM].name, templates[PALLADIUM].matchingMode,
+                        0.5, score, rectangle);
 
                     if (matchFound)
                     {

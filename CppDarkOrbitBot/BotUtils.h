@@ -26,10 +26,12 @@ struct Template {
 };
 
 enum TemplateIdentifier {
-    //PALLADIUM = 0,
-    PROMETIUM = 0,
+    PALLADIUM = 0,
     CARGO_ICON = 1,
-    //ENDURIUM = 3
+    PROMETIUM = 2,
+    ENDURIUM = 3,
+    MINIMAP_ICON = 4,
+    MINIMAP_BUTTONS = 5
 };
 
 void setConsoleStyle(int style);

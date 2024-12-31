@@ -217,15 +217,15 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
         else
         {
             threadPool.enqueue(std::bind(matchSingleTemplate, 
-                screenshotGrid[0][3],
+                screenshot,
                 templates[i].grayscale, 
                 templates[i].alpha, 
                 templates[i].name, 
                 templates[i].matchingMode,
                 templates[i].confidenceThreshold,
-                ref(matchedConfidences[i][0][3]),
-                ref(matchedRectangles[i][0][3]),
-                ref(firstNMSPassDeduplicatedIndexes[i][0][3])));
+                ref(matchedConfidences[i][0][0]),
+                ref(matchedRectangles[i][0][0]),
+                ref(firstNMSPassDeduplicatedIndexes[i][0][0])));
         }
     }
     threadPool.waitForCompletion();
