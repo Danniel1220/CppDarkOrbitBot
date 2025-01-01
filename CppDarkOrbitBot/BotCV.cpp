@@ -72,7 +72,7 @@ Mat ScreenshotManager::capture()
     return image;
 }
 
-void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, Mat &screenshot, string templateName)
+void drawMatchedTargets(vector<TemplateMatch> &matches, Mat &screenshot, string templateName)
 {
     Scalar color;
 
@@ -80,23 +80,23 @@ void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, M
     else if (templateName == "cargo_icon.png") color = Scalar(0, 0, 255); // red
     else color = Scalar(255, 255, 255); //fallback to white in case something went wrong
 
-    for (int i = 0; i < rectangles.size(); i++)
+    for (int i = 0; i < matches.size(); i++)
     {
-        drawSingleTargetOnScreenshot(screenshot, rectangles[i], confidences[i], templateName, color);
+        drawSingleTargetOnScreenshot(screenshot, matches[i], templateName, color);
 
         // drawing rectangle
-        cv::rectangle(screenshot, rectangles[i], color, 2);
+        cv::rectangle(screenshot, matches[i].rect, color, 2);
 
         // creating label with confidence score
         ostringstream labelStream;
-        labelStream << std::fixed << std::setprecision(2) << confidences[i];
+        labelStream << std::fixed << std::setprecision(2) << matches[i].confidence;
         string label = templateName + " | " + labelStream.str();
 
         // calculating position for the label (so it doesnt go off screen
         int baseLine = 0;
         Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-        Point labelPos(rectangles[i].x, rectangles[i].y - 10); // position above the rectangle
-        if (labelPos.y < 0) labelPos.y = rectangles[i].y + labelSize.height + 10; // adjust if too close to top edge
+        Point labelPos(matches[i].rect.x, matches[i].rect.y - 10); // position above the rectangle
+        if (labelPos.y < 0) labelPos.y = matches[i].rect.y + labelSize.height + 10; // adjust if too close to top edge
 
         // drawing background rectangle for the label
         cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
@@ -106,21 +106,21 @@ void drawMatchedTargets(vector<Rect> &rectangles, vector<double> &confidences, M
     }
 }
 
-void drawSingleTargetOnScreenshot(Mat &screenshot, Rect rectangle, double confidence, string name, Scalar color)
+void drawSingleTargetOnScreenshot(Mat &screenshot, TemplateMatch target, string name, Scalar color)
 {
     // drawing rectangle
-    cv::rectangle(screenshot, rectangle, color, 2);
+    cv::rectangle(screenshot, target.rect, color, 2);
 
     // creating label with confidence score
     ostringstream labelStream;
-    labelStream << std::fixed << std::setprecision(2) << confidence;
+    labelStream << std::fixed << std::setprecision(2) << target.confidence;
     string label = name + " | " + labelStream.str();
 
     // calculating position for the label (so it doesnt go off screen
     int baseLine = 0;
     Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-    Point labelPos(rectangle.x, rectangle.y - 10); // position above the rectangle
-    if (labelPos.y < 0) labelPos.y = rectangle.y + labelSize.height + 10; // adjust if too close to top edge
+    Point labelPos(target.rect.x, target.rect.y - 10); // position above the rectangle
+    if (labelPos.y < 0) labelPos.y = target.rect.y + labelSize.height + 10; // adjust if too close to top edge
 
     // drawing background rectangle for the label
     cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
@@ -183,7 +183,7 @@ void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlph
 }
 
 void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates,
-    ThreadPool &threadPool, vector<vector<double>> &resultMatchedConfidences, vector<vector<Rect>> &resultMatchedRectangles)
+    ThreadPool &threadPool, vector<vector<TemplateMatch>> &resultMatches)
 {
     // templates - rows - columns - matches
     vector<vector<vector<vector<double>>>> matchedConfidences(templates.size(), vector<vector<vector<double>>>(screenshotGrid.size(), vector<vector<double>>(screenshotGrid[0].size())));
@@ -283,8 +283,12 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
         // placing the deduplicated matches into the final result vectors
         for (int j = 0; j < secondNMSPassDeduplicatedIndexes[i].size(); j++)
         {
-            resultMatchedRectangles[i].emplace_back(firstNMSPassMatchedRectangles[i][secondNMSPassDeduplicatedIndexes[i][j]]);
-            resultMatchedConfidences[i].emplace_back(firstNMSPassMatchedConfidences[i][secondNMSPassDeduplicatedIndexes[i][j]]);
+            TemplateMatch match = TemplateMatch(
+                firstNMSPassMatchedRectangles[i][secondNMSPassDeduplicatedIndexes[i][j]],
+                firstNMSPassMatchedConfidences[i][secondNMSPassDeduplicatedIndexes[i][j]],
+                templates[i].identifier);
+
+            resultMatches[i].emplace_back(match);
         }
     }
 }

@@ -23,18 +23,6 @@ using namespace chrono;
 
 HWND darkOrbitHandle;
 
-struct TemplateMatch
-{
-    Rect rect;
-    double confidence;
-    TemplateIdentifier identifier;
-
-    bool operator()(const TemplateMatch &a, const TemplateMatch &b) const 
-    {
-        return (a.rect.x == b.rect.x) ? a.rect.y < b.rect.y : a.rect.x < b.rect.x;
-    }
-};
-
 int main() 
 {
     long long initialisationStart = getCurrentMillis();
@@ -57,12 +45,12 @@ int main()
     setConsoleStyle(DEFAULT);
 
     vector<Template> templates = {
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\endurium2.png", TM_CCOEFF_NORMED, 0.7, true, true, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_icon.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
-        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_buttons.png", TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()}
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", PALLADIUM, TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\cargo_icon.png", CARGO_ICON, TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\prometium1.png", PROMETIUM, TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\endurium2.png", ENDURIUM, TM_CCOEFF_NORMED, 0.7, true, true, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_icon.png", MINIMAP_ICON, TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()},
+        {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\minimap_buttons.png", MINIMAP_BUTTONS, TM_SQDIFF_NORMED, 0.1, false, false, Mat(), Mat()}
     };
 
     int screenshotGridColumns = 4;
@@ -87,8 +75,7 @@ int main()
     extractPngNames(templates);
 
     // templates - matches
-    vector<vector<Rect>> matchedRectangles(templates.size());
-    vector<vector<double>> matchedConfidences(templates.size());
+    vector<vector<TemplateMatch>> matchedTemplates(templates.size());
 
     setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
     cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
@@ -128,8 +115,7 @@ int main()
 
         // clearing previous frame's matches
         timeProfilerAux = getCurrentMicros();
-        for (vector<Rect> &v : matchedRectangles) v.clear();
-        for (vector<double> &v : matchedConfidences) v.clear();
+        for (vector<TemplateMatch> &v : matchedTemplates) v.clear();
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
@@ -150,26 +136,25 @@ int main()
 
         // template matching
         timeProfilerAux = getCurrentMicros();
-        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, threadPool, matchedConfidences, matchedRectangles);
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, threadPool, matchedTemplates);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
 
         // figuring out which match is closest
         timeProfilerAux = getCurrentMicros();
-        Rect closestResourceRect;
-        double closestResourceConfidence = -1;
+        TemplateMatch closestResource = TemplateMatch(Rect(), -1, NO_TEMPLATE);
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-        for (int i = 0; i < matchedRectangles[PALLADIUM].size(); i++)
+        for (int i = 0; i < matchedTemplates[PALLADIUM].size(); i++)
         {
             // this returns distance between the point and the center of the screenshot where the ship is
-            double distance = pointToScreenshotCenterDistance(matchedRectangles[PALLADIUM][i].x, matchedRectangles[PALLADIUM][i].y, screenshot.cols, screenshot.rows);
+            double distance = pointToScreenshotCenterDistance(matchedTemplates[PALLADIUM][i].rect.x, matchedTemplates[PALLADIUM][i].rect.y, screenshot.cols, screenshot.rows);
             if (distance < closestResourceDistance && distance > minimumResourceDistance)
             {
+                closestResource.rect = matchedTemplates[PALLADIUM][i].rect;
+                closestResource.confidence = matchedTemplates[PALLADIUM][i].confidence;
                 closestResourceDistance = distance;
-                closestResourceRect = matchedRectangles[PALLADIUM][i];
-                closestResourceConfidence = matchedConfidences[PALLADIUM][i];
                 closestResourceIndex = i;
             }
         }
@@ -182,15 +167,14 @@ int main()
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
-            matchedRectangles[PALLADIUM].erase(matchedRectangles[PALLADIUM].begin() + closestResourceIndex);
-            matchedConfidences[PALLADIUM].erase(matchedConfidences[PALLADIUM].begin() + closestResourceIndex);
+            matchedTemplates[PALLADIUM].erase(matchedTemplates[PALLADIUM].begin() + closestResourceIndex);
 
             // drawing closest resource separately to use a different color
-            drawSingleTargetOnScreenshot(screenshot, closestResourceRect, closestResourceConfidence, templates[PALLADIUM].name, Scalar(255, 255, 255));
+            drawSingleTargetOnScreenshot(screenshot, closestResource, templates[PALLADIUM].name, Scalar(255, 255, 255));
 
             // draw a line between the ship and the closest resource found
             line(screenshot, 
-                Point(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2), 
+                Point(closestResource.rect.x + closestResource.rect.width / 2, closestResource.rect.y + closestResource.rect.height / 2), 
                 Point(screenshot.cols / 2, screenshot.rows / 2), 
                 Scalar(255, 255, 255), 1, LINE_4, 0);
         }
@@ -201,7 +185,7 @@ int main()
         // drawing matches
         timeProfilerAux = getCurrentMicros();
         for (int i = 0; i < templates.size(); i++) 
-            drawMatchedTargets(matchedRectangles[i], matchedConfidences[i], screenshot, templates[i].name);
+            drawMatchedTargets(matchedTemplates[i], screenshot, templates[i].name);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
@@ -212,9 +196,9 @@ int main()
         if (botON)
         {
             // if the bot is scanning and a closest resource has been found
-            if (status == SCANNING && closestResourceRect.width != 0)
+            if (status == SCANNING && closestResource.rect.width != 0)
             {
-                clickAt(closestResourceRect.x + closestResourceRect.width / 2, closestResourceRect.y + closestResourceRect.height / 2);
+                clickAt(closestResource.rect.x + closestResource.rect.width / 2, closestResource.rect.y + closestResource.rect.height / 2);
                 status = MOVING;
                 movingTimer = getCurrentMillis();
 

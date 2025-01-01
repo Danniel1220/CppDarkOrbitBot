@@ -15,8 +15,19 @@ enum BotStatus {
     COLLECTING = 2
 };
 
+enum TemplateIdentifier {
+    NO_TEMPLATE = -1,
+    PALLADIUM = 0,
+    CARGO_ICON = 1,
+    PROMETIUM = 2,
+    ENDURIUM = 3,
+    MINIMAP_ICON = 4,
+    MINIMAP_BUTTONS = 5
+};
+
 struct Template {
     string name;
+    TemplateIdentifier identifier;
     cv::TemplateMatchModes matchingMode;
     double confidenceThreshold;
     bool useDividedScreenshot;
@@ -25,13 +36,19 @@ struct Template {
     Mat alpha;
 };
 
-enum TemplateIdentifier {
-    PALLADIUM = 0,
-    CARGO_ICON = 1,
-    PROMETIUM = 2,
-    ENDURIUM = 3,
-    MINIMAP_ICON = 4,
-    MINIMAP_BUTTONS = 5
+struct TemplateMatch
+{
+    Rect rect;
+    double confidence;
+    TemplateIdentifier identifier;
+
+    bool operator()(const TemplateMatch &a, const TemplateMatch &b) const 
+    {
+        return (a.rect.x == b.rect.x) ? a.rect.y < b.rect.y : a.rect.x < b.rect.x;
+    }
+
+    TemplateMatch(const Rect& rect, double confidence, const TemplateIdentifier& identifier)
+        : rect(rect), confidence(confidence), identifier(identifier) {}
 };
 
 void setConsoleStyle(int style);
