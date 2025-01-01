@@ -51,5 +51,7 @@ long long computeTimePassed(long long start, long long finish);
 void computeFrameRate(int loopDuration, float &totalTime, float &totalFrames, string &currentFPSString, string &averageFPSString);
 void clickAt(int x, int y);
 string botStatusEnumToString(BotStatus status);
+double distanceBetweenPoints(Point &a, Point &b);
+double pointToScreenshotCenterDistance(int &x, int &y, int screenWidth, int screenHeight);
 
 #endif

@@ -361,3 +361,15 @@ string botStatusEnumToString(BotStatus status)
 
     }
 }
+
+double distanceBetweenPoints(Point &a, Point &b) 
+{
+    return sqrt(pow((b.x - a.x), 2) + pow((b.y - a.y), 2));
+}
+
+double pointToScreenshotCenterDistance(int &x, int &y, int screenWidth, int screenHeight)
+{
+    Point screenshotCenter = Point(screenWidth / 2, screenHeight / 2);
+
+    return sqrt(pow((screenshotCenter.x - x), 2) + pow((screenshotCenter.y - y), 2));
+}

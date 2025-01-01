@@ -35,24 +35,6 @@ struct TemplateMatch
     }
 };
 
-double distanceBetweenPoints(Point &a, Point &b) 
-{
-    return sqrt(pow((b.x - a.x), 2) + pow((b.y - a.y), 2));
-}
-
-double pointToOriginDistance(Point &a) 
-{
-    // only passing 1 point will be considered will return the distance between the point and the origin (0,0)
-    return sqrt(pow((a.x), 2) + pow((a.y), 2));
-}
-
-double pointToScreenshotCenterDistance(int &x, int &y, int screenWidth, int screenHeight)
-{
-    Point screenshotCenter = Point(screenWidth / 2, screenHeight / 2);
-
-    return sqrt(pow((screenshotCenter.x - x), 2) + pow((screenshotCenter.y - y), 2));
-}
-
 int main() 
 {
     long long initialisationStart = getCurrentMillis();
