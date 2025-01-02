@@ -277,7 +277,10 @@ string botStatusEnumToString(BotStatus status)
             return "MOVING";
         case COLLECTING:
             return "COLLECTING";
+        case TRAVELING:
+            return "TRAVELING";
         default:
+            printWithTimestamp("Failed to cast bot status to string...", RED_TEXT_BLACK_BACKGROUND);
             throw std::runtime_error("Failed to cast bot status to string...");
         }
     }

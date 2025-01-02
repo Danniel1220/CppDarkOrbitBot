@@ -12,7 +12,8 @@ using namespace cv;
 enum BotStatus {
     SCANNING = 0,
     MOVING = 1,
-    COLLECTING = 2
+    COLLECTING = 2,
+    TRAVELING = 3
 };
 
 enum TemplateIdentifier {

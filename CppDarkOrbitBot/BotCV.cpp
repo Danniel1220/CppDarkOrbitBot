@@ -76,7 +76,7 @@ void drawMultipleTargets(Mat &screenshot, vector<TemplateMatch> &matches,  strin
 {
     Scalar color;
 
-    if (templateName == "prometium1.png") color = Scalar(0, 255, 0); // green
+    if (templateName == "palladium1.png") color = Scalar(255, 120, 0); // cyan
     else if (templateName == "cargo_icon.png") color = Scalar(0, 0, 255); // red
     else color = Scalar(255, 255, 255); //fallback to white in case something went wrong
 

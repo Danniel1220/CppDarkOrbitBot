@@ -11,6 +11,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <random>
 
 #include "Constants.h"
 #include "BotUtils.h"
@@ -168,14 +169,14 @@ int main()
         TemplateMatch closestResource = TemplateMatch(Rect(), -1, NO_TEMPLATE);
         double closestResourceDistance = screenshot.cols;
         int closestResourceIndex = -1;
-        for (int i = 0; i < matchedTemplates[PALLADIUM].size(); i++)
+        for (int i = 0; i < matchedTemplates[0].size(); i++)
         {
             // this returns distance between the point and the center of the screenshot where the ship is
-            double distance = pointToScreenshotCenterDistance(matchedTemplates[PALLADIUM][i].rect.x, matchedTemplates[PALLADIUM][i].rect.y, screenshot.cols, screenshot.rows);
+            double distance = pointToScreenshotCenterDistance(matchedTemplates[0][i].rect.x, matchedTemplates[0][i].rect.y, screenshot.cols, screenshot.rows);
             if (distance < closestResourceDistance && distance > minimumResourceDistance)
             {
-                closestResource.rect = matchedTemplates[PALLADIUM][i].rect;
-                closestResource.confidence = matchedTemplates[PALLADIUM][i].confidence;
+                closestResource.rect = matchedTemplates[0][i].rect;
+                closestResource.confidence = matchedTemplates[0][i].confidence;
                 closestResourceDistance = distance;
                 closestResourceIndex = i;
             }
@@ -189,10 +190,10 @@ int main()
         if (closestResourceIndex != -1)
         {
             // removing the closest match from the vector so that it wont get drawn like the other matches
-            matchedTemplates[PALLADIUM].erase(matchedTemplates[PALLADIUM].begin() + closestResourceIndex);
+            matchedTemplates[PALLADIUM].erase(matchedTemplates[0].begin() + closestResourceIndex);
 
             // drawing closest resource separately to use a different color
-            drawSingleTarget(screenshot, closestResource, templates[PALLADIUM].name, Scalar(255, 255, 255));
+            drawSingleTarget(screenshot, closestResource, templates[0].name, Scalar(255, 255, 255));
 
             // draw a line between the ship and the closest resource found
             line(screenshot, 
@@ -220,8 +221,8 @@ int main()
         bool botON = true;
         if (botON)
         {
-            // if the bot is scanning and a closest resource has been found
-            if (status == SCANNING && closestResource.rect.width != 0)
+            // if the bot is ready to collect and a closest resource has been found
+            if ((status == SCANNING || status == TRAVELING) && closestResource.rect.width != 0)
             {
                 clickAt(closestResource.rect.x + closestResource.rect.width / 2, closestResource.rect.y + closestResource.rect.height / 2);
                 status = MOVING;
@@ -236,7 +237,7 @@ int main()
                 if (computeTimePassed(movingTimer, getCurrentMillis()) > 4000)
                 {
                     status = SCANNING;
-                    printWithTimestamp("Fallback to scanning after 4s passed", RED_TEXT_BLACK_BACKGROUND);
+                    printWithTimestamp("Fallback to scanning after 4s passed", YELLOW_TEXT_BLACK_BACKGROUND);
                 }
                 // if 4 seconds have passed we are probably stuck so we go back to scanning
                 else 
@@ -268,6 +269,21 @@ int main()
                     printWithTimestamp("Collected resource");
                     printWithTimestamp("BOT_STATUS: SCANNING");
                 }
+            }
+            // if we are scanning but no matches have been found
+            else if (status == SCANNING && matchedTemplates[0].size() == 0)
+            {
+                printWithTimestamp("Cannot find any resources, changing location");
+                status = TRAVELING;
+                Point topLeft = Point(minimapRect.x + minimapRect.width / 3.13, minimapRect.y + minimapRect.height / 1.42);
+                Point bottomRight = Point(minimapRect.x + minimapRect.width / 1.32, minimapRect.y + minimapRect.height / 1.07);
+
+                // generating a random location inside the palladium field
+                random_device rd;
+                mt19937 gen(rd());
+                uniform_int_distribution<int> rdX(topLeft.x, bottomRight.x);
+                uniform_int_distribution<int> rdY(topLeft.y, bottomRight.y);
+                clickAt(rdX(gen), rdY(gen));
             }
         }
 
