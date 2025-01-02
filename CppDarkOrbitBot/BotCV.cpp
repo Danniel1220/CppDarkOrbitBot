@@ -72,7 +72,7 @@ Mat ScreenshotManager::capture()
     return image;
 }
 
-void drawMatchedTargets(vector<TemplateMatch> &matches, Mat &screenshot, string templateName)
+void drawMultipleTargets(Mat &screenshot, vector<TemplateMatch> &matches,  string templateName)
 {
     Scalar color;
 
@@ -82,7 +82,7 @@ void drawMatchedTargets(vector<TemplateMatch> &matches, Mat &screenshot, string 
 
     for (int i = 0; i < matches.size(); i++)
     {
-        drawSingleTargetOnScreenshot(screenshot, matches[i], templateName, color);
+        drawSingleTarget(screenshot, matches[i], templateName, color);
 
         // drawing rectangle
         cv::rectangle(screenshot, matches[i].rect, color, 2);
@@ -106,7 +106,7 @@ void drawMatchedTargets(vector<TemplateMatch> &matches, Mat &screenshot, string 
     }
 }
 
-void drawSingleTargetOnScreenshot(Mat &screenshot, TemplateMatch target, string name, Scalar color)
+void drawSingleTarget(Mat &screenshot, TemplateMatch target, string name, Scalar color)
 {
     // drawing rectangle
     cv::rectangle(screenshot, target.rect, color, 2);
@@ -121,6 +121,29 @@ void drawSingleTargetOnScreenshot(Mat &screenshot, TemplateMatch target, string 
     Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
     Point labelPos(target.rect.x, target.rect.y - 10); // position above the rectangle
     if (labelPos.y < 0) labelPos.y = target.rect.y + labelSize.height + 10; // adjust if too close to top edge
+
+    // drawing background rectangle for the label
+    cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
+
+    // drawing the label text
+    cv::putText(screenshot, label, labelPos, FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 0), 1);
+}
+
+void drawSingleTarget(Mat &screenshot, Rect target, string name, Scalar color)
+{
+    // drawing rectangle
+    cv::rectangle(screenshot, target, color, 2);
+
+    // creating label with confidence score
+    ostringstream labelStream;
+    labelStream << std::fixed << std::setprecision(2);
+    string label = name + " | " + labelStream.str();
+
+    // calculating position for the label (so it doesnt go off screen
+    int baseLine = 0;
+    Size labelSize = cv::getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+    Point labelPos(target.x, target.y - 10); // position above the rectangle
+    if (labelPos.y < 0) labelPos.y = target.y + labelSize.height + 10; // adjust if too close to top edge
 
     // drawing background rectangle for the label
     cv::rectangle(screenshot, labelPos + Point(0, baseLine), labelPos + Point(labelSize.width, -labelSize.height), color, FILLED);
@@ -193,6 +216,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
     // for each template
     for (int i = 0; i < templates.size(); i++)
     {
+        // if the template requires using the divided screenshot
         if (templates[i].useDividedScreenshot == true)
         {
             // for each row of the grid
@@ -214,6 +238,7 @@ void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector
                 }
             }
         }
+        // else use the full screenshot
         else
         {
             threadPool.enqueue(std::bind(matchSingleTemplate, 

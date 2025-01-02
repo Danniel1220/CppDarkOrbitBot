@@ -33,8 +33,9 @@ private:
     void cleanup();
 };
 
-void drawMatchedTargets(vector<TemplateMatch> &matches, Mat &screenshot, string templateName);
-void drawSingleTargetOnScreenshot(Mat &screenshot, TemplateMatch target, string name, Scalar color);
+void drawMultipleTargets(Mat &screenshot, vector<TemplateMatch> &matches, string templateName);
+void drawSingleTarget(Mat &screenshot, TemplateMatch target, string name, Scalar color);
+void drawSingleTarget(Mat &screenshot, Rect target, string name, Scalar color);
 void matchSingleTemplate(Mat screenshot, Mat templateGrayscale, Mat templateAlpha, string templateName, TemplateMatchModes matchMode, double confidenceThreshold,
     vector<double> &matchScores, vector<Rect> &matchRectangles, vector<int> &deduplicatedMatchIndexes);
 void matchTemplatesParallel(Mat &screenshot, int screenshotOffset, vector<vector<Mat>> &screenshotGrid, vector<Template> &templates,

@@ -74,6 +74,9 @@ int main()
     loadImages(templates);
     extractPngNames(templates);
 
+    vector<Template> resourceTemplates;
+    resourceTemplates.emplace_back(templates[PALLADIUM]);
+
     // templates - matches
     vector<vector<TemplateMatch>> matchedTemplates(templates.size());
 
@@ -105,6 +108,23 @@ int main()
     vector<long long> timeProfilerTotalTimes(timeProfilerSteps.size(), 0);
     vector<float> timeProfilerAverageTimes(timeProfilerSteps.size(), 0);
 
+    // finding the location and size of the minimap
+
+    // grabbing the templates for the minimap
+    vector<Template> minimapTemplates;
+    minimapTemplates.emplace_back(templates[MINIMAP_ICON]);
+    minimapTemplates.emplace_back(templates[MINIMAP_BUTTONS]);
+    // taking screenshot
+    Mat screenshotForMinimap = screenshotManager.capture();
+    vector<vector<Mat>> dividedScreenshotForMinimap = divideImage(screenshotForMinimap, screenshotGridColumns, screenshotGridRows, screenshotOffset);
+    // performing template matching to find the minimap
+    vector<vector<TemplateMatch>> minimapMatchedTemplates(minimapTemplates.size());
+    matchTemplatesParallel(screenshotForMinimap, screenshotOffset, dividedScreenshotForMinimap, minimapTemplates, threadPool, minimapMatchedTemplates);
+    int width = (minimapMatchedTemplates[1][0].rect.x + minimapMatchedTemplates[1][0].rect.width) - minimapMatchedTemplates[0][0].rect.x;
+    int height = width / 1.408; // 1.408 is the ratio between width and height for the minimap
+    // final minimap rect 
+    Rect minimapRect = Rect(minimapMatchedTemplates[0][0].rect.x, minimapMatchedTemplates[0][0].rect.y, width, height);
+
     while (true)
     {
         // keep track of when the loop starts
@@ -134,9 +154,9 @@ int main()
         profilingStep++;
 
 
-        // template matching
+        // resource template matching
         timeProfilerAux = getCurrentMicros();
-        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, templates, threadPool, matchedTemplates);
+        matchTemplatesParallel(screenshot, screenshotOffset, dividedScreenshot, resourceTemplates, threadPool, matchedTemplates);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
@@ -170,7 +190,7 @@ int main()
             matchedTemplates[PALLADIUM].erase(matchedTemplates[PALLADIUM].begin() + closestResourceIndex);
 
             // drawing closest resource separately to use a different color
-            drawSingleTargetOnScreenshot(screenshot, closestResource, templates[PALLADIUM].name, Scalar(255, 255, 255));
+            drawSingleTarget(screenshot, closestResource, templates[PALLADIUM].name, Scalar(255, 255, 255));
 
             // draw a line between the ship and the closest resource found
             line(screenshot, 
@@ -185,9 +205,12 @@ int main()
         // drawing matches
         timeProfilerAux = getCurrentMicros();
         for (int i = 0; i < templates.size(); i++) 
-            drawMatchedTargets(matchedTemplates[i], screenshot, templates[i].name);
+            drawMultipleTargets(screenshot, matchedTemplates[i], templates[i].name);
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
+
+        // drawing minimap
+        drawSingleTarget(screenshot, minimapRect, "Minimap", Scalar(0, 255, 0));
 
 
         // bot decision logic
