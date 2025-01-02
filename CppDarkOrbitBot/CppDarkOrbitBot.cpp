@@ -120,6 +120,11 @@ int main()
     // performing template matching to find the minimap
     vector<vector<TemplateMatch>> minimapMatchedTemplates(minimapTemplates.size());
     matchTemplatesParallel(screenshotForMinimap, screenshotOffset, dividedScreenshotForMinimap, minimapTemplates, threadPool, minimapMatchedTemplates);
+    if (minimapMatchedTemplates[0].size() == 0 || minimapMatchedTemplates[1].size() == 0)
+    {
+        printWithTimestamp("Could not find minimap...", RED_TEXT_BLACK_BACKGROUND);
+        return -1;
+    }
     int width = (minimapMatchedTemplates[1][0].rect.x + minimapMatchedTemplates[1][0].rect.width) - minimapMatchedTemplates[0][0].rect.x;
     int height = width / 1.408; // 1.408 is the ratio between width and height for the minimap
     // final minimap rect 
