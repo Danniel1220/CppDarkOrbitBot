@@ -33,16 +33,13 @@ int main()
 
     if (darkOrbitHandle)
     {
-        setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
-        cout << "DarkOrbit handle found!" << endl;
+        printWithTimestamp("DarkOrbit handle found!", GREEN_TEXT_BLACK_BACKGROUND);
     }
     else
     {
-        setConsoleStyle(RED_TEXT_BLACK_BACKGROUND);
-        cout << "DarkOrbit handle not found..." << endl;
+        printWithTimestamp("DarkOrbit handle not found...", RED_TEXT_BLACK_BACKGROUND);
         return -1;
     }
-    setConsoleStyle(DEFAULT);
 
     vector<Template> templates = {
         {"C:\\Users\\climd\\source\\repos\\CppDarkOrbitBot\\pngs\\palladium1.png", PALLADIUM, TM_CCOEFF_NORMED, 0.75, true, true, Mat(), Mat()},
@@ -80,33 +77,13 @@ int main()
     // templates - matches
     vector<vector<TemplateMatch>> matchedTemplates(templates.size());
 
-    setConsoleStyle(YELLOW_TEXT_BLACK_BACKGROUND);
-    cout << "Screenshot grid size: " << screenshotGridColumns << " columns x " << screenshotGridRows << " rows" << endl;
-    cout << "Screenshot offset: " << screenshotOffset << endl;
+    printWithTimestamp("Screenshot grid size: " + to_string(screenshotGridColumns) + " columns x " + to_string(screenshotGridRows) + " rows", YELLOW_TEXT_BLACK_BACKGROUND);
+    printWithTimestamp("Screenshot offset: " + to_string(screenshotOffset), YELLOW_TEXT_BLACK_BACKGROUND);
 
     ThreadPool threadPool(threadCount);
-    cout << "Started " << threadCount << " worker threads" << endl;
-    setConsoleStyle(DEFAULT);
-
-    long long initialisationDuration = computeTimePassed(initialisationStart, getCurrentMillis());
-    setConsoleStyle(GREEN_TEXT_BLACK_BACKGROUND);
-    cout << "Bot initialisation took " << initialisationDuration << "ms" << endl;
-    setConsoleStyle(DEFAULT);
+    printWithTimestamp("Started " + to_string(threadCount) + " worker threads", YELLOW_TEXT_BLACK_BACKGROUND);
 
     ScreenshotManager screenshotManager(darkOrbitHandle);
-
-    vector<string> timeProfilerSteps = {
-        "Clearing previous frames",
-        "Taking screenshot",
-        "Dividing screenshot",
-        "Template matching",
-        "Closest resource loop",
-        "Closest match drawing",
-        "Drawing matches",
-        "Bot decision logic"
-    };
-    vector<long long> timeProfilerTotalTimes(timeProfilerSteps.size(), 0);
-    vector<float> timeProfilerAverageTimes(timeProfilerSteps.size(), 0);
 
     // finding the location and size of the minimap
 
@@ -129,6 +106,26 @@ int main()
     int height = width / 1.408; // 1.408 is the ratio between width and height for the minimap
     // final minimap rect 
     Rect minimapRect = Rect(minimapMatchedTemplates[0][0].rect.x, minimapMatchedTemplates[0][0].rect.y, width, height);
+    printWithTimestamp("Minimap found at [" + to_string(minimapRect.x) + ", " + to_string(minimapRect.y) 
+        + "] with size " + to_string(minimapRect.width) + "x" + to_string(minimapRect.height),
+        YELLOW_TEXT_BLACK_BACKGROUND);
+
+    vector<string> timeProfilerSteps = {
+        "Clearing previous frames",
+        "Taking screenshot",
+        "Dividing screenshot",
+        "Template matching",
+        "Closest resource loop",
+        "Closest match drawing",
+        "Drawing matches",
+        "Bot decision logic"
+    };
+    vector<long long> timeProfilerTotalTimes(timeProfilerSteps.size(), 0);
+    vector<float> timeProfilerAverageTimes(timeProfilerSteps.size(), 0);
+
+    long long initialisationDuration = computeTimePassed(initialisationStart, getCurrentMillis());
+    printWithTimestamp("Bot initialisation took " + to_string(initialisationDuration) + "ms", GREEN_TEXT_BLACK_BACKGROUND);
+    printWithTimestamp("Starting bot main loop");
 
     while (true)
     {
@@ -214,7 +211,7 @@ int main()
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
-        // drawing minimap
+        // drawing minimap rect
         drawSingleTarget(screenshot, minimapRect, "Minimap", Scalar(0, 255, 0));
 
 

@@ -52,7 +52,6 @@ struct TemplateMatch
 };
 
 void setConsoleStyle(int style);
-vector<Mat> loadImages(vector<string> paths, vector<Mat>& grayscales, vector<Mat>& alphas);
 void loadImages(vector<Template> &templates);
 void testConsoleColors();
 void showImages(vector<Mat>& targetGrayImages, string name);
