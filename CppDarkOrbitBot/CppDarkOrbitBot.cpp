@@ -64,6 +64,7 @@ int main()
 
     long long collectingTimer;
     long long movingTimer;
+    long long travellingTimer;
 
     float minimumResourceDistance = 100.0;
 
@@ -128,6 +129,9 @@ int main()
     printWithTimestamp("Bot initialisation took " + to_string(initialisationDuration) + "ms", GREEN_TEXT_BLACK_BACKGROUND);
     printWithTimestamp("Starting bot main loop");
 
+    bool botON = false;
+    bool toggleKeyPressed = false;
+
     while (true)
     {
         // keep track of when the loop starts
@@ -184,6 +188,13 @@ int main()
         timeProfilerTotalTimes[profilingStep] += computeTimePassed(timeProfilerAux, getCurrentMicros());
         profilingStep++;
 
+        if (closestResourceIndex == -1 && matchedTemplates[0].size() == 1)
+        {
+            closestResource.rect = matchedTemplates[0][0].rect;
+            closestResource.confidence = matchedTemplates[0][0].confidence;
+            closestResourceIndex = 0;
+        }
+
 
         // closest match drawing
         timeProfilerAux = getCurrentMicros();
@@ -216,9 +227,26 @@ int main()
         drawSingleTarget(screenshot, minimapRect, "Minimap", Scalar(0, 255, 0));
 
 
+        // bot logic on-off toggle
+        if (GetAsyncKeyState(0x70) & 0x8000) // 0x54 is the virtual key code for 'F1'
+        {  
+            if (!toggleKeyPressed) 
+            {
+                botON = !botON;
+                toggleKeyPressed = true;
+                string msg = "Bot turned ";
+                if (botON) msg = msg + "ON";
+                else msg = msg + "OFF";
+                printWithTimestamp(msg);
+            }
+        } 
+        else 
+        {
+            toggleKeyPressed = false;
+        }
+
         // bot decision logic
         timeProfilerAux = getCurrentMicros();
-        bool botON = true;
         if (botON)
         {
             // if the bot is ready to collect and a closest resource has been found
@@ -234,7 +262,7 @@ int main()
             else if (status == MOVING) 
             {
                 // if 4 seconds of moving havent passed yet
-                if (computeTimePassed(movingTimer, getCurrentMillis()) > 4000)
+                if (computeTimePassed(movingTimer, getCurrentMillis()) > 2500)
                 {
                     status = SCANNING;
                     printWithTimestamp("Fallback to scanning after 4s passed", YELLOW_TEXT_BLACK_BACKGROUND);
@@ -263,7 +291,7 @@ int main()
             }
             else if (status == COLLECTING)
             {
-                if (computeTimePassed(collectingTimer, getCurrentMillis()) > 1000)
+                if (computeTimePassed(collectingTimer, getCurrentMillis()) > 50)
                 {
                     status = SCANNING;
                     printWithTimestamp("Collected resource");
@@ -275,6 +303,8 @@ int main()
             {
                 printWithTimestamp("Cannot find any resources, changing location");
                 status = TRAVELING;
+                printWithTimestamp("BOT_STATUS: TRAVELLING");
+                travellingTimer = getCurrentMillis();
                 Point topLeft = Point(minimapRect.x + minimapRect.width / 3.13, minimapRect.y + minimapRect.height / 1.42);
                 Point bottomRight = Point(minimapRect.x + minimapRect.width / 1.32, minimapRect.y + minimapRect.height / 1.07);
 
@@ -283,7 +313,17 @@ int main()
                 mt19937 gen(rd());
                 uniform_int_distribution<int> rdX(topLeft.x, bottomRight.x);
                 uniform_int_distribution<int> rdY(topLeft.y, bottomRight.y);
-                clickAt(rdX(gen), rdY(gen));
+                //clickAt(rdX(gen), rdY(gen));
+                clickAt(bottomRight.x -12, rdY(gen));
+            }
+            else if (status == TRAVELING)
+            {
+                if (computeTimePassed(travellingTimer, getCurrentMillis()) > 10000)
+                {
+                    status = SCANNING;
+                    printWithTimestamp("Travelling for too long...", YELLOW_TEXT_BLACK_BACKGROUND);
+                    printWithTimestamp("BOT_STATUS: SCANNING");
+                }
             }
         }
 
